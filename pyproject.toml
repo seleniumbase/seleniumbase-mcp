@@ -1,0 +1,26 @@
+[project]
+name = "seleniumbase-mcp"
+version = "0.1.1"
+description = "MCP servers exposing SeleniumBase (Driver, Pure CDP Mode, and SB()) as tools for MCP clients like Claude Desktop and Claude Code."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+dependencies = [
+    "mcp[cli]>=2.0.0,<3.0.0",
+    "seleniumbase>=4.52.1",
+]
+
+[build-system]
+requires = ["setuptools>=70.2.0", "wheel>=0.44.0"]
+build-backend = "setuptools.build_meta"
+
+[project.scripts]
+seleniumbase-cdp = "cdp_server:main"
+seleniumbase-driver = "driver_server:main"
+seleniumbase-sb = "sb_server:main"
+
+[tool.setuptools]
+py-modules = ["cdp_server", "driver_server", "sb_server"]
+
+[tool.setuptools.exclude-package-data]
+"*" = [".venv*", "build*", "dist*", "uv.lock"]
