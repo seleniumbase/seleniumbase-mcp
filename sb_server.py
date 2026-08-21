@@ -13,8 +13,7 @@ not inside one indented block.
     sb_context.__exit__(None, None, None)
 
 `sb` (a BaseCase instance) is SeleniumBase's broadest API: everything
-Driver-based automation offers, plus UC Mode stealth helpers
-(uc_click, activate_cdp_mode), drag-and-drop, MFA/TOTP codes,
+Driver-based automation offers, plus drag-and-drop, MFA/TOTP codes,
 and file downloads.
 
 Reference:
@@ -49,23 +48,22 @@ def _get_sb() -> Any:
 def start_browser(
     browser: str = "chrome",
     headless: bool = False,
-    uc: bool = False,
+    uc: bool = True,
     incognito: bool = False,
     guest_mode: bool = False,
     proxy: str | None = None,
-    ad_block_on: bool = False,
+    ad_block: bool = False,
 ) -> str:
     """Start a new SB() session. Must be called before any other tool.
 
     Args:
         browser: "chrome", "edge", or "firefox".
         headless: Run without a visible window.
-        uc: Undetected-Chromedriver (UC Mode) — evades bot detection, and
-            unlocks uc_click/activate_cdp_mode tools below.
+        uc: Undetected-Chromedriver (UC Mode) — evades bot detection.
         incognito: Launch in a private/incognito window.
         guest_mode: Launch in Chrome guest mode.
         proxy: Proxy string, e.g. "USER:PASS@SERVER:PORT" or "SERVER:PORT".
-        ad_block_on: Block ads.
+        ad_block: Block ads.
     """
     global _sb_context, _sb
     if _sb is not None:
@@ -83,13 +81,13 @@ def start_browser(
         kwargs["guest_mode"] = True
     if proxy:
         kwargs["proxy"] = proxy
-    if ad_block_on:
-        kwargs["ad_block_on"] = True
+    if ad_block:
+        kwargs["ad_block"] = True
     _sb_context = SB(**kwargs)
     _sb = _sb_context.__enter__()
     return (
-        f"Started SB() session (browser={browser}, "
-        f"headless={headless}, uc={uc})"
+        f"Started SB() session with browser={browser}, "
+        f"headless={headless}, uc={uc}."
     )
 
 
@@ -646,19 +644,19 @@ def switch_to_default_content() -> str:
 # ---------------------------------------------------------------------------
 
 @mcp.tool()
-def uc_click(selector: str) -> str:
-    """A stealthy click for evading bot-detection (requires uc=True)."""
-    _get_sb().uc_click(selector)
-    return f"Stealth-clicked {selector}"
-
-
-@mcp.tool()
 def activate_cdp_mode(url: str | None = None) -> str:
     """Switch the current session into Pure CDP Mode, optionally navigating
     to a URL. Once active, CDP-only capabilities (e.g. more thorough
     stealth) apply to subsequent actions. Requires uc=True."""
     _get_sb().activate_cdp_mode(url)
     return f"CDP Mode activated (url={url!r})"
+
+
+@mcp.tool()
+def solve_captcha() -> str:
+    """Attempt to solve a captcha (e.g. Cloudflare Turnstile) on the page."""
+    _get_sb().solve_captcha()
+    return "Attempted captcha solve."
 
 
 # ---------------------------------------------------------------------------

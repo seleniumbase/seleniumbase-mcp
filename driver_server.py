@@ -29,10 +29,13 @@ def _get_driver() -> Driver:
 
 @mcp.tool()
 def start_browser(
-    headless: bool = False,
     browser: str = "chrome",
-    uc: bool = False,
+    headless: bool = False,
+    uc: bool = True,
     incognito: bool = False,
+    guest_mode: bool = False,
+    proxy: str | None = None,
+    ad_block: bool = False,
 ) -> str:
     """Start a new browser session. Must be called before any other tool.
 
@@ -49,11 +52,17 @@ def start_browser(
             "A browser session is already running. Call close_browser first."
         )
     _driver = Driver(
-        browser=browser, headless=headless, uc=uc, incognito=incognito
+        browser=browser,
+        headless=headless,
+        uc=uc,
+        incognito=incognito,
+        guest_mode=guest_mode,
+        proxy=proxy,
+        ad_block=ad_block,
     )
     return (
-        f"Started {browser} (headless={headless}, "
-        f"uc={uc}, incognito={incognito})"
+        f"Started Driver() session with browser={browser}, "
+        f"headless={headless}, uc={uc}."
     )
 
 
@@ -222,6 +231,26 @@ def assert_text(text: str, selector: str | None = None) -> str:
     else:
         d.assert_text(text)
     return f"Confirmed '{text}' is present."
+
+
+# ---------------------------------------------------------------------------
+# UC Mode / CDP Mode stealth helpers (require start_browser(uc=True))
+# ---------------------------------------------------------------------------
+
+@mcp.tool()
+def activate_cdp_mode(url: str | None = None) -> str:
+    """Switch the current session into Pure CDP Mode, optionally navigating
+    to a URL. Once active, CDP-only capabilities (e.g. more thorough
+    stealth) apply to subsequent actions. Requires uc=True."""
+    _get_driver().activate_cdp_mode(url)
+    return f"CDP Mode activated (url={url!r})"
+
+
+@mcp.tool()
+def solve_captcha() -> str:
+    """Attempt to solve a captcha (e.g. Cloudflare Turnstile) on the page."""
+    _get_driver().solve_captcha()
+    return "Attempted captcha solve."
 
 
 # ---------------------------------------------------------------------------
