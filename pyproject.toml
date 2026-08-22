@@ -4,7 +4,7 @@ version = "0.1.1"
 description = "MCP servers exposing SeleniumBase as tools for MCP clients."
 readme = "README.md"
 requires-python = ">=3.10"
-license = { text = "MIT" }
+license = "MIT"
 keywords = [
     "mcp",
     "model-context-protocol",
@@ -30,7 +30,6 @@ classifiers = [
     "Development Status :: 4 - Beta",
     "Environment :: Console",
     "Intended Audience :: Developers",
-    "License :: OSI Approved :: MIT License",
     "Operating System :: MacOS :: MacOS X",
     "Operating System :: Microsoft :: Windows",
     "Operating System :: POSIX :: Linux",
@@ -51,6 +50,12 @@ maintainers = [{ name = "Michael Mintz" }]
 dependencies = [
     "mcp[cli]>=2.0.0,<3.0.0",
     "seleniumbase>=4.52.1",
+]
+
+[project.optional-dependencies]
+dev = [
+    "build>=1.0.0",
+    "twine>=7.0.0",
 ]
 
 [project.urls]
