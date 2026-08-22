@@ -8,9 +8,9 @@ There are **three server variants** in this folder:
 
 | File | Backs onto | Best for |
 |---|---|---|
-| `driver_server.py` | `seleniumbase.Driver` (WebDriver) | General automation/testing; broad ecosystem support |
-| `cdp_server.py` | `seleniumbase.sb_cdp.Chrome` (Pure CDP Mode, sync) | Scraping/automation against bot-detection (Cloudflare, Turnstile, etc.); no WebDriver at all, plus captcha-solving |
-| `sb_server.py` | `seleniumbase.SB()` (used without `with`, via manual `__enter__`/`__exit__`) | The broadest API surface: everything `Driver` offers, plus drag-and-drop, MFA/TOTP codes, and file downloads — one session that can flip into CDP Mode mid-flow via `activate_cdp_mode` |
+| `cdp_server.py` | `seleniumbase.sb_cdp.Chrome()` (Pure CDP Mode, sync) | Scraping/automation against bot-detection (Cloudflare, etc.) No WebDriver at all. Includes CAPTCHA-solving. |
+| `driver_server.py` | `seleniumbase.Driver()` (WebDriver) | General automation with Selenium ecosystem support. |
+| `sb_server.py` | `seleniumbase.SB()` (used without `with`, via manual `__enter__`/`__exit__`) | The broadest API surface: Everything `Driver` offers, plus drag-and-drop, MFA-handling, file downloads, etc. Can switch to CDP Mode mid-flow via `activate_cdp_mode` |
 
 All three default `headless=False` — the browser window is visible unless
 you pass `headless=True` when starting a session.
@@ -166,7 +166,7 @@ claude mcp add seleniumbase-sb -- uv run seleniumbase-sb
 
 | Tool | Purpose |
 |---|---|
-| `start_browser(headless, browser, uc, incognito)` | Launch a browser session (headless defaults to `False`) |
+| `start_browser(browser, headless, uc, incognito)` | Launch a browser session (headless defaults to `False`) |
 | `close_browser()` | End the session |
 | `navigate(url)` | Go to a URL |
 | `go_back()` / `go_forward()` / `refresh_page()` | History navigation |
@@ -182,7 +182,7 @@ claude mcp add seleniumbase-sb -- uv run seleniumbase-sb
 | `switch_to_frame(selector)` / `switch_to_default_content()` | iframe handling |
 | `assert_text(text, selector)` | Verify text is present |
 | `screenshot(filename)` | Save a screenshot |
-| `execute_script(script)` | Run arbitrary JS |
+| `execute_script(script)` | Run a JS script |
 
 ## Design notes / things to adapt for your use case
 
@@ -195,24 +195,11 @@ claude mcp add seleniumbase-sb -- uv run seleniumbase-sb
   the server while a page loads or an element is waited on. For a
   single-user local tool this is fine; for a multi-client server you'd
   want to run them in a thread pool via `asyncio.to_thread`.
-- **Errors surface as tool errors — with one exception (`sb_server.py`).**
-  If a selector isn't found or an assertion fails, `driver_server.py` and
-  `cdp_server.py` raise an exception, which the MCP SDK turns into a tool
-  error the client sees and can react to. `sb_server.py` is different: see
-  its `test=True` note below.
-- **Security.** `execute_script`/`evaluate` run arbitrary JS and these
-  servers can drive a real browser to real sites — don't expose them over
-  an untrusted network transport; stdio + local trust (the default here)
-  is the safe setup.
-- **Headless vs headed.** Default is headed (`headless=False`) so you can
+- **Headless vs Headed.** Default is headed (`headless=False`) so you can
   watch the browser work and so sites that block headless Chrome still
   function. Pass `headless=True` for background/server use once you've
   confirmed a flow works. `sb_server.py`'s `uc=True` (undetected-
   chromedriver) also helps against bot-detection walls.
-- **No PyAutoGUI tools.** OS-level mouse/keyboard control (`gui_*` in
-  `cdp_server.py`, `uc_gui_*` in `sb_server.py`) was left out of all three
-  servers by design — add it back the same way as any other tool if you
-  need it, keeping in mind it requires `headless=False` and a real display.
 
 ## Extending
 
@@ -244,7 +231,7 @@ in the loop at all. Reference:
 | Scrolling | `scroll_into_view`, `scroll_to_top/bottom`, `scroll_up/down` |
 | Tabs & windows | `open_new_tab`, `switch_to_tab`/`switch_to_newest_tab`, `close_active_tab`, `maximize`/`minimize`, `get/set_window_rect` |
 | Captcha | `solve_captcha` |
-| Output | `save_screenshot`, `save_page_source`, `save_as_pdf`, `evaluate` (run JS) |
+| Output | `save_screenshot`, `save_page_source`, `save_as_pdf`, `evaluate` |
 
 ### CDP-specific design notes
 
@@ -276,7 +263,7 @@ in the loop at all. Reference:
 Wraps `seleniumbase.SB()`, normally used as a context manager:
 
 ```python
-with SB(uc=True, test=True) as sb:
+with SB(uc=True) as sb:
     sb.goto(...)
 ```
 
@@ -298,7 +285,7 @@ focuses on those extras rather than re-wrapping everything already covered:
 
 | Group | Tools |
 |---|---|
-| UC/CDP stealth | `uc_click`, `activate_cdp_mode` (flips the *same* session into Pure CDP Mode mid-flow) |
+| UC/CDP stealth | `activate_cdp_mode` (flips the *same* session into Pure CDP Mode mid-flow) |
 | Extra interactions | `hover_and_click`, `drag_and_drop`, `double_click`, `context_click`, `choose_file` (upload) |
 | MFA | `get_mfa_code`, `enter_mfa_code` (TOTP/Google-Authenticator-style codes from a secret key) |
 | Files | `download_file` |
@@ -312,16 +299,7 @@ rather than `Driver`'s or CDP's.
 
 ### SB()-specific design notes
 
-- **`start_browser` always passes `test=True`.** `test=True` prints
-  exceptions instead of raising them, and adds extra output that displays
-  when a "test" (i.e., this session) starts and finishes — you'll see
-  banners like `{cdp_server.py:1:SB} starts` in the server's own console
-  output. One consequence: since exceptions get printed rather than
-  raised, a failed `assert_*` tool in `sb_server.py` won't surface as an
-  MCP tool error the way it does in `driver_server.py`/`cdp_server.py` —
-  check the server's stderr/logs if an assertion-based tool call isn't
-  behaving as expected.
-- **UC-only tools need `uc=True` at startup.**
+- **UC Mode (stealth mode) requires `uc=True` at startup.**
   Pass it in `start_browser` up front if you'll need them.
 - **`activate_cdp_mode` doesn't start a new session.** It switches the
   *existing* `sb` session's underlying mode to Pure CDP for subsequent
