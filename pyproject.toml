@@ -53,9 +53,17 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-dev = [
+deploy = [
     "build>=1.0.0",
     "twine>=7.0.0",
+]
+uv = [
+    "uv>=0.12.5",
+]
+
+[dependency-groups]  # Used by `uv sync`
+dev = [
+    "uv>=0.12.5",  # Needed for `mcp dev`
 ]
 
 [project.urls]
