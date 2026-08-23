@@ -1,7 +1,7 @@
-# SeleniumBase MCP Server
+# SeleniumBase MCP Servers
 
-Exposes [SeleniumBase](https://github.com/seleniumbase/SeleniumBase) browser automation as tools
-over the [Model Context Protocol](https://modelcontextprotocol.io), so any
+Exposes [SeleniumBase](https://github.com/seleniumbase/SeleniumBase)
+browser automation as tools over the [Model Context Protocol](https://modelcontextprotocol.io), so any
 MCP client (Claude Desktop, Claude Code, etc.) can drive a real browser.
 
 There are **three server variants** in this folder:
