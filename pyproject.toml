@@ -50,7 +50,6 @@ maintainers = [{ name = "Michael Mintz" }]
 dependencies = [
     "mcp[cli]>=2.0.0,<3.0.0",
     "seleniumbase>=4.52.1",
-    "uv>=0.12.5"
 ]
 
 [project.optional-dependencies]
