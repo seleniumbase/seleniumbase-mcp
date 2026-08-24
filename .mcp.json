@@ -2,18 +2,18 @@
   "mcpServers": {
     "seleniumbase-cdp": {
       "type": "stdio",
-      "command": "uv",
-      "args": ["run", "seleniumbase-cdp"]
+      "command": "seleniumbase-cdp",
+      "args": []
     },
     "seleniumbase-driver": {
       "type": "stdio",
-      "command": "uv",
-      "args": ["run", "seleniumbase-driver"]
+      "command": "seleniumbase-driver",
+      "args": []
     },
     "seleniumbase-sb": {
       "type": "stdio",
-      "command": "uv",
-      "args": ["run", "seleniumbase-sb"]
+      "command": "seleniumbase-sb",
+      "args": []
     }
   }
 }
