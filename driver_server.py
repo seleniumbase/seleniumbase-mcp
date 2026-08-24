@@ -8,6 +8,7 @@ Exposes SeleniumBase browser automation as tools callable by any MCP client
 Model: one persistent browser session per server process. Call start_browser
 once, drive it with the other tools, then close_browser when done.
 """
+from __future__ import annotations
 import atexit
 import sys
 from mcp.server import MCPServer

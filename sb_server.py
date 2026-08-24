@@ -22,6 +22,7 @@ github.com/seleniumbase/SeleniumBase/blob/master/help_docs/method_summary.md
 Model: one persistent SB() session per server process. Call start_browser
 once, drive it with the other tools, then close_browser.
 """
+from __future__ import annotations
 import atexit
 import sys
 from typing import Any
