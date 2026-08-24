@@ -20,9 +20,9 @@ immediately to a plain dict (tag, text, html) rather than returning a handle.
 If you need to act on a *specific* one of several matching elements, use
 click_nth_element / click_nth_visible_element rather than find + click.
 """
-
+import atexit
+import sys
 from typing import Any
-
 from mcp.server import MCPServer
 from seleniumbase import sb_cdp
 
@@ -681,8 +681,24 @@ def get_user_agent() -> str:
     return _get_sb().get_user_agent()
 
 
+def _cleanup_browser():
+    global _sb
+    if _sb is not None:
+        try:
+            _sb.quit()
+        except Exception:
+            pass
+        _sb = None
+
+
 def main():
-    mcp.run(transport="stdio")
+    atexit.register(_cleanup_browser)
+    print(f'Running the "{mcp.name}" server...', file=sys.stderr)
+    try:
+        mcp.run(transport="stdio")
+    except (KeyboardInterrupt, SystemExit):
+        print(f'\nThe "{mcp.name}" server was stopped.', file=sys.stderr)
+        sys.exit(0)
 
 
 if __name__ == "__main__":

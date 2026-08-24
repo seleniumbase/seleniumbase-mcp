@@ -22,9 +22,9 @@ github.com/seleniumbase/SeleniumBase/blob/master/help_docs/method_summary.md
 Model: one persistent SB() session per server process. Call start_browser
 once, drive it with the other tools, then close_browser.
 """
-
+import atexit
+import sys
 from typing import Any
-
 from mcp.server import MCPServer
 from seleniumbase import SB
 
@@ -748,8 +748,24 @@ def sleep(seconds: float) -> str:
     return f"Slept {seconds}s"
 
 
+def _cleanup_browser():
+    global _sb
+    if _sb is not None:
+        try:
+            _sb.quit()
+        except Exception:
+            pass
+        _sb = None
+
+
 def main():
-    mcp.run(transport="stdio")
+    atexit.register(_cleanup_browser)
+    print(f'Running the "{mcp.name}" server...', file=sys.stderr)
+    try:
+        mcp.run(transport="stdio")
+    except (KeyboardInterrupt, SystemExit):
+        print(f'\nThe "{mcp.name}" server was stopped.', file=sys.stderr)
+        sys.exit(0)
 
 
 if __name__ == "__main__":
