@@ -26,8 +26,8 @@ uv sync
 
 `uv sync` reads `pyproject.toml`, creates a `.venv/` in this folder, and installs the two dependencies (`mcp[cli]`, `seleniumbase`) along with this project itself, which registers three console-script commands via `[project.scripts]`:
 
-- `seleniumbase-driver`
 - `seleniumbase-cdp`
+- `seleniumbase-driver`
 - `seleniumbase-sb`
 
 Each just calls that server file's `main()` function (`mcp.run(transport="stdio")`). This is what lets `uv run <name>` work as the MCP client command in steps 3 and 4 below.
