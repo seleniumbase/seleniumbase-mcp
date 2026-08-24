@@ -272,13 +272,13 @@ def execute_script(script: str):
 
 
 def _cleanup_browser():
-    global _sb
-    if _sb is not None:
+    global _driver
+    if _driver is not None:
         try:
-            _sb.quit()
+            _driver.quit()
         except Exception:
             pass
-        _sb = None
+        _driver = None
 
 
 def main():
