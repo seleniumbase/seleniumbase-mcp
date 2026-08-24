@@ -1,10 +1,8 @@
 # SeleniumBase MCP Servers
 
-Exposes [SeleniumBase](https://github.com/seleniumbase/SeleniumBase)
-browser automation as tools over the [Model Context Protocol](https://modelcontextprotocol.io), so any
-MCP client (Claude Desktop, Claude Code, etc.) can drive a real browser.
+### This package provides three different [SeleniumBase](https://github.com/seleniumbase/SeleniumBase) MCP servers for driving stealthy browser automation over the [Model Context Protocol](https://modelcontextprotocol.io).
 
-There are **three server variants** in this folder:
+Here are the **three server variants** in this folder:
 
 | File | Backs onto | Best for |
 |---|---|---|
@@ -12,11 +10,9 @@ There are **three server variants** in this folder:
 | `driver_server.py` | `seleniumbase.Driver()` (WebDriver) | General automation with Selenium ecosystem support. |
 | `sb_server.py` | `seleniumbase.SB()` (used without `with`, via manual `__enter__`/`__exit__`) | The broadest API surface: Everything `Driver` offers, plus drag-and-drop, MFA-handling, file downloads, etc. Can switch to CDP Mode mid-flow via `activate_cdp_mode` |
 
-All three default `headless=False` — the browser window is visible unless
-you pass `headless=True` when starting a session.
+All three set `headless=False` by default, where the browser window is visible unless you pass `headless=True` when starting a session.
 
-Point your MCP client config at whichever `*_server.py` fits the task (see
-step 3 below) — or register all three under different names.
+Point your MCP client config at whichever `*_server.py` fits the task (see step 3 below), or register all three under different names.
 
 ## 1. Install
 
@@ -28,19 +24,13 @@ cd seleniumbase-mcp
 uv sync
 ```
 
-`uv sync` reads `pyproject.toml`, creates a `.venv/` in this folder, and
-installs the two dependencies (`mcp[cli]`, `seleniumbase`) along with this
-project itself — which registers three console-script commands via
-`[project.scripts]`:
+`uv sync` reads `pyproject.toml`, creates a `.venv/` in this folder, and installs the two dependencies (`mcp[cli]`, `seleniumbase`) along with this project itself, which registers three console-script commands via `[project.scripts]`:
 
 - `seleniumbase-driver`
 - `seleniumbase-cdp`
 - `seleniumbase-sb`
 
-Each just calls that server file's `main()` function
-(`mcp.run(transport="stdio")`). This is what lets `uv run <name>` — no
-python path, no venv path, no script path — work as the MCP client command
-in steps 3 and 4 below.
+Each just calls that server file's `main()` function (`mcp.run(transport="stdio")`). This is what lets `uv run <name>` work as the MCP client command in steps 3 and 4 below.
 
 ```bash
 # SeleniumBase's Driver() and SB() formats need a browser driver downloaded:
@@ -49,33 +39,27 @@ uv run seleniumbase get chromedriver
 #  which doesn't use WebDriver at all.)
 ```
 
-(No `uv`? A regular `python3 -m venv venv && pip install -e .` works too —
-just substitute `python <script>.py` for `uv run <name>` everywhere below,
-and use absolute `venv/bin/python` + script paths in your MCP client config
-instead of the path-free options.)
+(No `uv`? A regular `python3 -m venv venv && pip install -e .` works too if you substitute `python <script>.py` for `uv run <name>` everywhere below, and use absolute `venv/bin/python` + script paths in your MCP client config instead of the path-free options.)
 
 ## 2. Try it standalone (optional sanity check)
 
 ```bash
 uv run mcp dev cdp_server.py
 ```
-That opens the MCP Inspector for SeleniumBase's "Pure CDP Mode" MCP Server, where you can test commands ("Tools"). Ctrl+C to exit. The real test is wiring it into a client (next step).
+
+That opens the MCP Inspector for SeleniumBase's "Pure CDP Mode" MCP Server, where you can test commands ("Tools"). Ctrl+C to exit. Next step is wiring it into a client.
 
 ## 3. Connect it to Claude Desktop
 
-Claude Desktop doesn't run from a "project" directory the way Claude Code
-does, so a bare `uv run <name>` isn't guaranteed to find this repo. Two
-ways to get a stable config:
+Claude Desktop doesn't run from a "project" directory the way Claude Code does, so a bare `uv run <name>` isn't guaranteed to find this repo. Two ways to get a stable config:
 
 **Option A — global install (recommended, zero paths anywhere):**
 
 ```bash
-uv tool install .          # from inside the repo, installs the 3 commands globally
+uv tool install .    # from inside the repo, installs the 3 commands globally
 ```
-This puts `seleniumbase-driver`/`seleniumbase-cdp`/`seleniumbase-sb` on
-your `PATH` permanently (run `uv tool ensurepath` once if it warns that its
-bin directory isn't on `PATH` yet). Then `claude_desktop_config.json` can
-be just:
+
+This puts `seleniumbase-driver`/`seleniumbase-cdp`/`seleniumbase-sb` on your `PATH` permanently (run `uv tool ensurepath` once if it warns that its bin directory isn't on `PATH` yet). Then `claude_desktop_config.json` can be just:
 
 ```json
 {
@@ -87,8 +71,7 @@ be just:
 }
 ```
 
-**Option B — point `uv` at the repo directly (one absolute path, but no
-venv/interpreter path to track down, and no separate install step):**
+**Option B — point `uv` at the repo directly (one absolute path, but no venv/interpreter path to track down, and no separate install step):**
 
 ```json
 {
@@ -114,16 +97,12 @@ The location of `claude_desktop_config.json` depends on your system:
 - macOS: `~/Library/Application Support/Claude/claude_desktop_config.json`
 - Windows: `%APPDATA%\Claude\claude_desktop_config.json`
 
-Restart Claude Desktop. You should see a 🔨 tools icon indicating the
-server(s) connected, with tools like `start_browser`, `navigate`, `click`,
-etc. available. Only keep the entries you actually want — three separate
-browser-automation servers is a lot if you only need one.
+Restart Claude Desktop. You should see a 🔨 tools icon indicating the server(s) connected, with tools like `start_browser`, `navigate`, `click`, etc. available. Only keep the entries you actually want. Three separate browser-automation servers is a lot if you only need one.
 
 ## 4. Connect it to Claude Code
 
-This repo's `.mcp.json` is checked in and ready to use as-is — no path
-editing required, because `uv run <name>` resolves this project from
-`pyproject.toml` in the current directory:
+This repo's `.mcp.json` is checked in and ready to use as-is.
+No path editing is required because `uv run <name>` resolves this project from `pyproject.toml` in the current directory:
 
 ```json
 {
@@ -147,19 +126,16 @@ editing required, because `uv run <name>` resolves this project from
 }
 ```
 
-Claude Code auto-loads `.mcp.json` from the directory you launch `claude`
-in, so as long as you run `claude` from inside this repo (or a clone of
-it), it just works — identically for every teammate who clones the repo,
-with zero machine-specific editing.
+Claude Code auto-loads `.mcp.json` from the directory you launch `claude` in, so as long as you run `claude` from inside this repo (or a clone of it), it just works.
 
-If you'd rather register the servers manually instead of relying on
-`.mcp.json`:
+If you'd rather register the servers manually instead of relying on `.mcp.json`:
 
 ```bash
 claude mcp add seleniumbase-cdp -- uv run seleniumbase-cdp
 claude mcp add seleniumbase-driver -- uv run seleniumbase-driver
 claude mcp add seleniumbase-sb -- uv run seleniumbase-sb
 ```
+
 (run from inside the repo directory, for the same reason as above.)
 
 ## Tools exposed (driver_server.py)
