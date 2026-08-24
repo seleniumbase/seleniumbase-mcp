@@ -109,21 +109,22 @@ No path editing is required because `uv run <name>` resolves this project from `
   "mcpServers": {
     "seleniumbase-cdp": {
       "type": "stdio",
-      "command": "uv",
-      "args": ["run", "seleniumbase-cdp"]
+      "command": "seleniumbase-cdp",
+      "args": []
     },
     "seleniumbase-driver": {
       "type": "stdio",
-      "command": "uv",
-      "args": ["run", "seleniumbase-driver"]
+      "command": "seleniumbase-driver",
+      "args": []
     },
     "seleniumbase-sb": {
       "type": "stdio",
-      "command": "uv",
-      "args": ["run", "seleniumbase-sb"]
+      "command": "seleniumbase-sb",
+      "args": []
     }
   }
 }
+
 ```
 
 Claude Code auto-loads `.mcp.json` from the directory you launch `claude` in, so as long as you run `claude` from inside this repo (or a clone of it), it just works.
