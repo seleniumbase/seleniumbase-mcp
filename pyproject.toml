@@ -48,8 +48,7 @@ classifiers = [
 authors = [{ name = "Michael Mintz", email = "mdmintz@gmail.com" }]
 maintainers = [{ name = "Michael Mintz" }]
 dependencies = [
-    "mcp[cli]>=2.0.0,<3.0.0",
-    "seleniumbase>=4.52.1",
+    "seleniumbase[mcp]>=4.52.2",
 ]
 
 [project.optional-dependencies]
