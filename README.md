@@ -24,7 +24,7 @@ cd seleniumbase-mcp
 uv sync
 ```
 
-`uv sync` reads `pyproject.toml`, creates a `.venv/` in this folder, and installs the two dependencies (`mcp[cli]`, `seleniumbase`) along with this project itself, which registers three console-script commands via `[project.scripts]`:
+`uv sync` reads `pyproject.toml`, creates a `.venv/` in this folder, and installs the `seleniumbase[mcp]` dependency along with this project itself, which registers three console-script commands via `[project.scripts]`:
 
 - `seleniumbase-cdp`
 - `seleniumbase-driver`
@@ -152,10 +152,10 @@ claude mcp add seleniumbase-sb -- uv run seleniumbase-sb
 | `get_text(selector)` | Visible text of an element |
 | `find_elements_count(selector)` | Count matches |
 | `is_element_visible(selector)` | Visibility check |
-| `click(selector, by)` | Click (CSS or XPath) |
-| `type_text(selector, text, clear_first)` | Fill a field |
-| `select_option(selector, option_text)` | Choose a dropdown option |
-| `wait_for_element(selector, timeout)` | Explicit wait |
+| `click(selector, timeout)` | Click (CSS or XPath) |
+| `type_text(selector, text, clear_first, timeout)` | Fill a field |
+| `select_option_by_text(dropdown_selector, option)` | Choose a dropdown option |
+| `wait_for_element_present(selector, timeout)` | Explicit wait |
 | `switch_to_frame(selector)` / `switch_to_default_content()` | iframe handling |
 | `assert_text(text, selector)` | Verify text is present |
 | `screenshot(filename)` | Save a screenshot |
@@ -202,7 +202,7 @@ in the loop at all. Reference:
 | Navigation | `navigate`, `reload_page`, `go_back`/`go_forward`, `get_current_url`, `get_title` |
 | Finding & reading | `find_element_info`, `find_all_info`, `get_text`, `get_html_source`, `get_element_attribute(s)`, `is_element_present/visible` |
 | Interacting | `click`, `click_if_visible`, `click_visible_elements`, `type_text`, `send_keys`, `set_value`, `select_option_by_text/value/index`, `nested_click` |
-| Waiting | `wait_for_element`, `wait_for_element_visible/not_visible/absent`, `wait_for_text` |
+| Waiting | `wait_for_element_present`, `wait_for_element_visible/not_visible/absent`, `wait_for_text` |
 | Assertions | `assert_element`, `assert_text`, `assert_exact_text`, `assert_title`, `assert_url(_contains)` |
 | Cookies & storage | `get_all_cookies`, `save_cookies`/`load_cookies`, `get/set_local_storage_item`, `get/set_session_storage_item` |
 | Scrolling | `scroll_into_view`, `scroll_to_top/bottom`, `scroll_up/down` |
