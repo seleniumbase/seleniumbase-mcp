@@ -19,12 +19,13 @@ and file downloads.
 Reference:
 github.com/seleniumbase/SeleniumBase/blob/master/help_docs/method_summary.md
 
-Model: one persistent SB() session per server process. Call start_browser
-once, drive it with the other tools, then close_browser.
+Model: One persistent SB() session per server process.
+Call start_browser once; drive it with the other tools; then close_browser.
 """
 from __future__ import annotations
 import atexit
 import sys
+from functools import wraps
 from typing import Any
 from mcp.server import MCPServer
 from seleniumbase import SB
@@ -41,11 +42,26 @@ def _get_sb() -> Any:
     return _sb
 
 
+def handle_sb_errors(func):
+    """Catches SeleniumBase errors and surfaces them as descriptive strings
+    so the LLM agent can read them and self-correct."""
+    @wraps(func)
+    def wrapper(*args, **kwargs):
+        try:
+            return func(*args, **kwargs)
+        except Exception as e:
+            error_type = e.__class__.__name__
+            error_msg = str(e).strip()
+            return f"Error in {func.__name__}: {error_type} - {error_msg}"
+    return wrapper
+
+
 # ---------------------------------------------------------------------------
 # Session lifecycle
 # ---------------------------------------------------------------------------
 
 @mcp.tool()
+@handle_sb_errors
 def start_browser(
     browser: str = "chrome",
     headless: bool = False,
@@ -56,7 +72,6 @@ def start_browser(
     ad_block: bool = False,
 ) -> str:
     """Start a new SB() session. Must be called before any other tool.
-
     Args:
         browser: "chrome", "edge", or "firefox".
         headless: Run without a visible window.
@@ -93,6 +108,7 @@ def start_browser(
 
 
 @mcp.tool()
+@handle_sb_errors
 def close_browser() -> str:
     """Close the browser and end the session."""
     global _sb_context, _sb
@@ -109,52 +125,69 @@ def close_browser() -> str:
 # ---------------------------------------------------------------------------
 
 @mcp.tool()
+@handle_sb_errors
 def navigate(url: str) -> str:
-    """Navigate to a URL."""
+    """Navigate to the given URL in the web browser.
+    If the URL doesn't start with a protocol (eg: `https://`),
+      then `https://` is automatically prefixed in before navigation.
+    Waits until the initial HTML document is fully parsed and loaded.
+    New pages visited will show up in browser navigation history.
+    If the URL is invalid or the page can't load due to an issue,
+      then the corresponding errors will be raised."""
     _get_sb().goto(url)
     return f"Navigated to {url}"
 
 
 @mcp.tool()
+@handle_sb_errors
 def refresh_page() -> str:
-    """Refresh the current page."""
+    """Refresh the current page.
+    Same as clicking the Reload button in the web browser."""
     _get_sb().refresh()
     return "Page refreshed."
 
 
 @mcp.tool()
+@handle_sb_errors
 def go_back() -> str:
-    """Go back one page in browser history."""
+    """Go back one page in browser history.
+    Same as clicking the Back button in the web browser."""
     _get_sb().go_back()
     return "Navigated back."
 
 
 @mcp.tool()
+@handle_sb_errors
 def go_forward() -> str:
-    """Go forward one page in browser history."""
+    """Go forward one page in browser history.
+    Same as clicking the Forward button in the web browser."""
     _get_sb().go_forward()
     return "Navigated forward."
 
 
 @mcp.tool()
+@handle_sb_errors
 def get_current_url() -> str:
     """Get the URL of the current page."""
     return _get_sb().get_current_url()
 
 
 @mcp.tool()
+@handle_sb_errors
 def get_title() -> str:
     """Get the title of the current page."""
     return _get_sb().get_title()
 
 
 @mcp.tool()
+@handle_sb_errors
 def get_origin() -> str:
     """Get the origin (scheme + host) of the current page."""
     return _get_sb().get_origin()
 
 
 @mcp.tool()
+@handle_sb_errors
 def get_user_agent() -> str:
     """Get the browser's current user agent string."""
     return _get_sb().get_user_agent()
@@ -165,61 +198,73 @@ def get_user_agent() -> str:
 # ---------------------------------------------------------------------------
 
 @mcp.tool()
+@handle_sb_errors
 def get_text(selector: str = "body") -> str:
-    """Get the visible text within an element (default: whole page body)."""
+    """Get the visible text within an element (default: whole page body).
+    Raises an exception if the element isn't found within the default timeout.
+    """
     return _get_sb().get_text(selector)
 
 
 @mcp.tool()
+@handle_sb_errors
 def get_html_source() -> str:
     """Get the full HTML source of the current page."""
     return _get_sb().get_page_source()
 
 
 @mcp.tool()
+@handle_sb_errors
 def get_element_html(selector: str) -> str:
     """Get the outer HTML of a specific element."""
     return _get_sb().get_html(selector)
 
 
 @mcp.tool()
+@handle_sb_errors
 def get_attribute(selector: str, attribute: str) -> Any:
     """Get one attribute's value from an element."""
     return _get_sb().get_attribute(selector, attribute)
 
 
 @mcp.tool()
-def find_elements_count(selector: str) -> int:
+@handle_sb_errors
+def find_elements_count(selector: str) -> int | str:
     """Count how many elements on the page match a selector."""
     return len(_get_sb().find_elements(selector))
 
 
 @mcp.tool()
-def is_element_present(selector: str) -> bool:
+@handle_sb_errors
+def is_element_present(selector: str) -> bool | str:
     """Check whether an element matching a selector exists in the DOM."""
     return _get_sb().is_element_present(selector)
 
 
 @mcp.tool()
-def is_element_visible(selector: str) -> bool:
+@handle_sb_errors
+def is_element_visible(selector: str) -> bool | str:
     """Check whether an element matching a selector is visible."""
     return _get_sb().is_element_visible(selector)
 
 
 @mcp.tool()
-def is_element_clickable(selector: str) -> bool:
+@handle_sb_errors
+def is_element_clickable(selector: str) -> bool | str:
     """Check whether an element matching a selector is clickable."""
     return _get_sb().is_element_clickable(selector)
 
 
 @mcp.tool()
-def is_text_visible(text: str, selector: str = "html") -> bool:
+@handle_sb_errors
+def is_text_visible(text: str, selector: str = "html") -> bool | str:
     """Check whether specific text is visible within an element."""
     return _get_sb().is_text_visible(text, selector)
 
 
 @mcp.tool()
-def is_selected(selector: str) -> bool:
+@handle_sb_errors
+def is_selected(selector: str) -> bool | str:
     """Check whether a checkbox/radio-button element is selected/checked."""
     return _get_sb().is_selected(selector)
 
@@ -229,13 +274,16 @@ def is_selected(selector: str) -> bool:
 # ---------------------------------------------------------------------------
 
 @mcp.tool()
+@handle_sb_errors
 def click(selector: str, timeout: int | None = None) -> str:
-    """Click an element matched by a CSS selector."""
+    """Click an element matched by the given CSS selector.
+    Raises an exception if the element isn't found within the timeout."""
     _get_sb().click(selector, timeout=timeout)
     return f"Clicked {selector}"
 
 
 @mcp.tool()
+@handle_sb_errors
 def click_if_visible(selector: str) -> str:
     """Click an element only if it's currently visible; no-op otherwise."""
     _get_sb().click_if_visible(selector)
@@ -243,6 +291,7 @@ def click_if_visible(selector: str) -> str:
 
 
 @mcp.tool()
+@handle_sb_errors
 def click_visible_elements(selector: str, limit: int = 0) -> str:
     """Click every currently-visible element matching a selector, in order.
     limit=0 means no limit."""
@@ -251,90 +300,127 @@ def click_visible_elements(selector: str, limit: int = 0) -> str:
 
 
 @mcp.tool()
+@handle_sb_errors
 def click_nth_visible_element(selector: str, number: int) -> str:
-    """Click the Nth visible element (1-indexed) matching a selector."""
+    """Click the Nth visible element (1-indexed) matching a selector.
+    Raises an exception if the element isn't found within the default timeout.
+    """
     _get_sb().click_nth_visible_element(selector, number)
     return f"Clicked visible element #{number} matching {selector}"
 
 
 @mcp.tool()
+@handle_sb_errors
 def click_link(link_text: str) -> str:
-    """Click a link (<a> tag) by its visible text."""
+    """Click a link (<a> tag) by its visible text.
+    Raises an exception if the element isn't found within the default timeout.
+    """
     _get_sb().click_link(link_text)
     return f"Clicked link with text '{link_text}'"
 
 
 @mcp.tool()
+@handle_sb_errors
 def double_click(selector: str) -> str:
-    """Double-click an element."""
+    """Double-click an element.
+    Raises an exception if the element isn't found within the default timeout.
+    """
     _get_sb().double_click(selector)
     return f"Double-clicked {selector}"
 
 
 @mcp.tool()
+@handle_sb_errors
 def context_click(selector: str) -> str:
-    """Right-click (context-click) an element."""
+    """Right-click (context-click) an element.
+    Raises an exception if the element isn't found within the default timeout.
+    """
     _get_sb().context_click(selector)
     return f"Right-clicked {selector}"
 
 
 @mcp.tool()
+@handle_sb_errors
 def type_text(selector: str, text: str) -> str:
-    """Clear a field and type text into it."""
+    """Clear a field and type text into it.
+    Raises an exception if the element isn't found within the default timeout.
+    """
     _get_sb().type(selector, text)
     return f"Typed into {selector}"
 
 
 @mcp.tool()
+@handle_sb_errors
 def send_keys(selector: str, text: str) -> str:
-    """Send keystrokes to an element without clearing it first."""
+    """Send keystrokes to an element without clearing it first.
+    Raises an exception if the element isn't found within the default timeout.
+    """
     _get_sb().send_keys(selector, text)
     return f"Sent keys to {selector}"
 
 
 @mcp.tool()
+@handle_sb_errors
 def set_value(selector: str, text: str) -> str:
-    """Set an input's value directly (e.g. for sliders, fast form fills)."""
+    """Set an input's value directly (e.g. for sliders, fast form fills).
+    Raises an exception if the element isn't found within the default timeout.
+    """
     _get_sb().set_value(selector, text)
     return f"Set value of {selector}"
 
 
 @mcp.tool()
+@handle_sb_errors
 def clear_input(selector: str) -> str:
-    """Clear an input field."""
+    """Clear an input field.
+    Raises an exception if the element isn't found within the default timeout.
+    """
     _get_sb().clear(selector)
     return f"Cleared {selector}"
 
 
 @mcp.tool()
+@handle_sb_errors
 def submit(selector: str) -> str:
-    """Submit a form via a selector inside it."""
+    """Submit a form via a selector inside it.
+    Raises an exception if the element isn't found within the default timeout.
+    """
     _get_sb().submit(selector)
     return f"Submitted form via {selector}"
 
 
 @mcp.tool()
-def select_option_by_text(dropdown_selector: str, option_text: str) -> str:
-    """Select a <select> dropdown option by its visible text."""
-    _get_sb().select_option_by_text(dropdown_selector, option_text)
-    return f"Selected '{option_text}' in {dropdown_selector}"
+@handle_sb_errors
+def select_option_by_text(dropdown_selector: str, option: str) -> str:
+    """Select a <select> dropdown option by its visible text.
+    Raises an exception if the element or option aren't found
+      within the default timeout, which is 7 seconds."""
+    _get_sb().select_option_by_text(dropdown_selector, option)
+    return f"Selected text '{option}' in {dropdown_selector}"
 
 
 @mcp.tool()
-def select_option_by_value(dropdown_selector: str, value: str) -> str:
-    """Select a <select> dropdown option by its value attribute."""
-    _get_sb().select_option_by_value(dropdown_selector, value)
-    return f"Selected value '{value}' in {dropdown_selector}"
+@handle_sb_errors
+def select_option_by_value(dropdown_selector: str, option: str) -> str:
+    """Select a <select> dropdown option by its value attribute.
+    Raises an exception if the element or option aren't found
+      within the default timeout, which is 7 seconds."""
+    _get_sb().select_option_by_value(dropdown_selector, option)
+    return f"Selected value '{option}' in {dropdown_selector}"
 
 
 @mcp.tool()
-def select_option_by_index(dropdown_selector: str, index: int) -> str:
-    """Select a <select> dropdown option by its 0-based index."""
-    _get_sb().select_option_by_index(dropdown_selector, index)
-    return f"Selected index {index} in {dropdown_selector}"
+@handle_sb_errors
+def select_option_by_index(dropdown_selector: str, option: int) -> str:
+    """Select a <select> dropdown option by its 0-based index.
+    Raises an exception if the element or option aren't found
+      within the default timeout, which is 7 seconds."""
+    _get_sb().select_option_by_index(dropdown_selector, option)
+    return f"Selected index {option} in {dropdown_selector}"
 
 
 @mcp.tool()
+@handle_sb_errors
 def hover_and_click(hover_selector: str, click_selector: str) -> str:
     """Hover over one element (e.g. to open a dropdown), then click another."""
     _get_sb().hover_and_click(hover_selector, click_selector)
@@ -342,6 +428,7 @@ def hover_and_click(hover_selector: str, click_selector: str) -> str:
 
 
 @mcp.tool()
+@handle_sb_errors
 def drag_and_drop(drag_selector: str, drop_selector: str) -> str:
     """Drag one element onto another."""
     _get_sb().drag_and_drop(drag_selector, drop_selector)
@@ -349,6 +436,7 @@ def drag_and_drop(drag_selector: str, drop_selector: str) -> str:
 
 
 @mcp.tool()
+@handle_sb_errors
 def nested_click(parent_selector: str, selector: str) -> str:
     """Click an element nested inside another (e.g. inside an iframe)."""
     _get_sb().nested_click(parent_selector, selector)
@@ -356,6 +444,7 @@ def nested_click(parent_selector: str, selector: str) -> str:
 
 
 @mcp.tool()
+@handle_sb_errors
 def choose_file(selector: str, file_path: str) -> str:
     """Set a <input type="file"> element to upload a local file."""
     _get_sb().choose_file(selector, file_path)
@@ -367,6 +456,7 @@ def choose_file(selector: str, file_path: str) -> str:
 # ---------------------------------------------------------------------------
 
 @mcp.tool()
+@handle_sb_errors
 def wait_for_element(selector: str, timeout: int | None = None) -> str:
     """Wait until an element is visible on the page."""
     _get_sb().wait_for_element(selector, timeout=timeout)
@@ -374,6 +464,7 @@ def wait_for_element(selector: str, timeout: int | None = None) -> str:
 
 
 @mcp.tool()
+@handle_sb_errors
 def wait_for_element_present(selector: str, timeout: int | None = None) -> str:
     """Wait until an element is present in the DOM (may not be visible)."""
     _get_sb().wait_for_element_present(selector, timeout=timeout)
@@ -381,6 +472,7 @@ def wait_for_element_present(selector: str, timeout: int | None = None) -> str:
 
 
 @mcp.tool()
+@handle_sb_errors
 def wait_for_element_not_visible(
     selector: str, timeout: int | None = None
 ) -> str:
@@ -390,6 +482,7 @@ def wait_for_element_not_visible(
 
 
 @mcp.tool()
+@handle_sb_errors
 def wait_for_element_absent(selector: str, timeout: int | None = None) -> str:
     """Wait until an element is removed from the DOM."""
     _get_sb().wait_for_element_absent(selector, timeout=timeout)
@@ -397,6 +490,7 @@ def wait_for_element_absent(selector: str, timeout: int | None = None) -> str:
 
 
 @mcp.tool()
+@handle_sb_errors
 def wait_for_text(
     text: str, selector: str = "html", timeout: int | None = None
 ) -> str:
@@ -410,6 +504,7 @@ def wait_for_text(
 # ---------------------------------------------------------------------------
 
 @mcp.tool()
+@handle_sb_errors
 def assert_element(selector: str, timeout: int | None = None) -> str:
     """Assert an element is visible."""
     _get_sb().assert_element(selector, timeout=timeout)
@@ -417,6 +512,7 @@ def assert_element(selector: str, timeout: int | None = None) -> str:
 
 
 @mcp.tool()
+@handle_sb_errors
 def assert_element_present(selector: str, timeout: int | None = None) -> str:
     """Assert an element is present in the DOM (may not be visible)."""
     _get_sb().assert_element_present(selector, timeout=timeout)
@@ -424,6 +520,7 @@ def assert_element_present(selector: str, timeout: int | None = None) -> str:
 
 
 @mcp.tool()
+@handle_sb_errors
 def assert_element_not_visible(
     selector: str, timeout: int | None = None
 ) -> str:
@@ -433,6 +530,7 @@ def assert_element_not_visible(
 
 
 @mcp.tool()
+@handle_sb_errors
 def assert_text(
     text: str, selector: str = "html", timeout: int | None = None
 ) -> str:
@@ -442,6 +540,7 @@ def assert_text(
 
 
 @mcp.tool()
+@handle_sb_errors
 def assert_exact_text(
     text: str, selector: str = "html", timeout: int | None = None
 ) -> str:
@@ -451,6 +550,7 @@ def assert_exact_text(
 
 
 @mcp.tool()
+@handle_sb_errors
 def assert_title(title: str) -> str:
     """Assert the page title matches exactly."""
     _get_sb().assert_title(title)
@@ -458,6 +558,7 @@ def assert_title(title: str) -> str:
 
 
 @mcp.tool()
+@handle_sb_errors
 def assert_url(url: str) -> str:
     """Assert the current URL matches exactly."""
     _get_sb().assert_url(url)
@@ -465,6 +566,7 @@ def assert_url(url: str) -> str:
 
 
 @mcp.tool()
+@handle_sb_errors
 def assert_url_contains(substring: str) -> str:
     """Assert the current URL contains a substring."""
     _get_sb().assert_url_contains(substring)
@@ -472,6 +574,7 @@ def assert_url_contains(substring: str) -> str:
 
 
 @mcp.tool()
+@handle_sb_errors
 def assert_no_404_errors() -> str:
     """Assert that none of the page's links return a 404 status."""
     _get_sb().assert_no_404_errors()
@@ -479,6 +582,7 @@ def assert_no_404_errors() -> str:
 
 
 @mcp.tool()
+@handle_sb_errors
 def assert_no_js_errors() -> str:
     """Assert the browser console has no JavaScript errors."""
     _get_sb().assert_no_js_errors()
@@ -490,12 +594,14 @@ def assert_no_js_errors() -> str:
 # ---------------------------------------------------------------------------
 
 @mcp.tool()
+@handle_sb_errors
 def get_cookies() -> Any:
     """Get all cookies for the current session."""
     return _get_sb().get_cookies()
 
 
 @mcp.tool()
+@handle_sb_errors
 def delete_all_cookies() -> str:
     """Delete all cookies."""
     _get_sb().delete_all_cookies()
@@ -503,6 +609,7 @@ def delete_all_cookies() -> str:
 
 
 @mcp.tool()
+@handle_sb_errors
 def save_cookies(name: str = "cookies.txt") -> str:
     """Save current cookies to a file."""
     _get_sb().save_cookies(name=name)
@@ -510,6 +617,7 @@ def save_cookies(name: str = "cookies.txt") -> str:
 
 
 @mcp.tool()
+@handle_sb_errors
 def load_cookies(name: str = "cookies.txt") -> str:
     """Load cookies from a previously saved file."""
     _get_sb().load_cookies(name=name)
@@ -517,12 +625,14 @@ def load_cookies(name: str = "cookies.txt") -> str:
 
 
 @mcp.tool()
+@handle_sb_errors
 def get_local_storage_item(key: str) -> Any:
     """Get a value from the page's localStorage."""
     return _get_sb().get_local_storage_item(key)
 
 
 @mcp.tool()
+@handle_sb_errors
 def set_local_storage_item(key: str, value: str) -> str:
     """Set a value in the page's localStorage."""
     _get_sb().set_local_storage_item(key, value)
@@ -530,12 +640,14 @@ def set_local_storage_item(key: str, value: str) -> str:
 
 
 @mcp.tool()
+@handle_sb_errors
 def get_session_storage_item(key: str) -> Any:
     """Get a value from the page's sessionStorage."""
     return _get_sb().get_session_storage_item(key)
 
 
 @mcp.tool()
+@handle_sb_errors
 def set_session_storage_item(key: str, value: str) -> str:
     """Set a value in the page's sessionStorage."""
     _get_sb().set_session_storage_item(key, value)
@@ -547,6 +659,7 @@ def set_session_storage_item(key: str, value: str) -> str:
 # ---------------------------------------------------------------------------
 
 @mcp.tool()
+@handle_sb_errors
 def scroll_into_view(selector: str) -> str:
     """Scroll an element into view."""
     _get_sb().scroll_into_view(selector)
@@ -554,6 +667,7 @@ def scroll_into_view(selector: str) -> str:
 
 
 @mcp.tool()
+@handle_sb_errors
 def scroll_to_top() -> str:
     """Scroll to the top of the page."""
     _get_sb().scroll_to_top()
@@ -561,6 +675,7 @@ def scroll_to_top() -> str:
 
 
 @mcp.tool()
+@handle_sb_errors
 def scroll_to_bottom() -> str:
     """Scroll to the bottom of the page."""
     _get_sb().scroll_to_bottom()
@@ -568,6 +683,7 @@ def scroll_to_bottom() -> str:
 
 
 @mcp.tool()
+@handle_sb_errors
 def scroll_up(amount: int = 25) -> str:
     """Scroll up by a relative amount."""
     _get_sb().scroll_up(amount=amount)
@@ -575,6 +691,7 @@ def scroll_up(amount: int = 25) -> str:
 
 
 @mcp.tool()
+@handle_sb_errors
 def scroll_down(amount: int = 25) -> str:
     """Scroll down by a relative amount."""
     _get_sb().scroll_down(amount=amount)
@@ -586,12 +703,14 @@ def scroll_down(amount: int = 25) -> str:
 # ---------------------------------------------------------------------------
 
 @mcp.tool()
-def get_window_rect() -> dict:
+@handle_sb_errors
+def get_window_rect() -> dict | str:
     """Get the current window's position and size."""
     return _get_sb().get_window_rect()
 
 
 @mcp.tool()
+@handle_sb_errors
 def maximize_window() -> str:
     """Maximize the browser window."""
     _get_sb().maximize_window()
@@ -599,6 +718,7 @@ def maximize_window() -> str:
 
 
 @mcp.tool()
+@handle_sb_errors
 def minimize_window() -> str:
     """Minimize the browser window."""
     _get_sb().minimize_window()
@@ -606,6 +726,7 @@ def minimize_window() -> str:
 
 
 @mcp.tool()
+@handle_sb_errors
 def open_new_tab(switch_to: bool = True) -> str:
     """Open a new browser tab, optionally switching to it."""
     _get_sb().open_new_tab(switch_to=switch_to)
@@ -613,6 +734,7 @@ def open_new_tab(switch_to: bool = True) -> str:
 
 
 @mcp.tool()
+@handle_sb_errors
 def switch_to_newest_tab() -> str:
     """Switch to the most recently opened tab."""
     _get_sb().switch_to_newest_tab()
@@ -620,6 +742,7 @@ def switch_to_newest_tab() -> str:
 
 
 @mcp.tool()
+@handle_sb_errors
 def switch_to_default_window() -> str:
     """Switch back to the first/original browser tab."""
     _get_sb().switch_to_default_window()
@@ -627,6 +750,7 @@ def switch_to_default_window() -> str:
 
 
 @mcp.tool()
+@handle_sb_errors
 def switch_to_frame(selector: str = "iframe") -> str:
     """Switch driver focus into an iframe matched by a CSS selector."""
     _get_sb().switch_to_frame(selector)
@@ -634,6 +758,7 @@ def switch_to_frame(selector: str = "iframe") -> str:
 
 
 @mcp.tool()
+@handle_sb_errors
 def switch_to_default_content() -> str:
     """Switch driver focus back out to the main page (out of any iframe)."""
     _get_sb().switch_to_default_content()
@@ -645,15 +770,17 @@ def switch_to_default_content() -> str:
 # ---------------------------------------------------------------------------
 
 @mcp.tool()
+@handle_sb_errors
 def activate_cdp_mode(url: str | None = None) -> str:
-    """Switch the current session into Pure CDP Mode, optionally navigating
-    to a URL. Once active, CDP-only capabilities (e.g. more thorough
-    stealth) apply to subsequent actions. Requires uc=True."""
+    """Switch the current browser session into CDP Mode, which adds stealth
+    capabilities and additional methods that use the Chrome DevTools Protocol.
+    You can optionally specify a URL to navigate to. Requires uc=True."""
     _get_sb().activate_cdp_mode(url)
     return f"CDP Mode activated (url={url!r})"
 
 
 @mcp.tool()
+@handle_sb_errors
 def solve_captcha() -> str:
     """Attempt to solve a captcha (e.g. Cloudflare Turnstile) on the page."""
     _get_sb().solve_captcha()
@@ -665,6 +792,7 @@ def solve_captcha() -> str:
 # ---------------------------------------------------------------------------
 
 @mcp.tool()
+@handle_sb_errors
 def get_mfa_code(totp_key: str) -> str:
     """Generate a current TOTP (e.g. Google Authenticator) code from a
     base32 secret key."""
@@ -672,6 +800,7 @@ def get_mfa_code(totp_key: str) -> str:
 
 
 @mcp.tool()
+@handle_sb_errors
 def enter_mfa_code(selector: str, totp_key: str) -> str:
     """Generate a current TOTP code and type it into a field."""
     _get_sb().enter_mfa_code(selector, totp_key)
@@ -683,6 +812,7 @@ def enter_mfa_code(selector: str, totp_key: str) -> str:
 # ---------------------------------------------------------------------------
 
 @mcp.tool()
+@handle_sb_errors
 def save_screenshot(
     name: str = "screenshot.png", folder: str | None = None
 ) -> str:
@@ -692,6 +822,7 @@ def save_screenshot(
 
 
 @mcp.tool()
+@handle_sb_errors
 def save_page_source(
     name: str = "page_source.html", folder: str | None = None
 ) -> str:
@@ -701,6 +832,7 @@ def save_page_source(
 
 
 @mcp.tool()
+@handle_sb_errors
 def print_to_pdf(name: str = "page.pdf", folder: str | None = None) -> str:
     """Print the current page to a PDF file."""
     _get_sb().print_to_pdf(name, folder=folder)
@@ -708,6 +840,7 @@ def print_to_pdf(name: str = "page.pdf", folder: str | None = None) -> str:
 
 
 @mcp.tool()
+@handle_sb_errors
 def download_file(file_url: str, destination_folder: str | None = None) -> str:
     """Download a file from a URL to a local folder."""
     _get_sb().download_file(file_url, destination_folder=destination_folder)
@@ -715,6 +848,7 @@ def download_file(file_url: str, destination_folder: str | None = None) -> str:
 
 
 @mcp.tool()
+@handle_sb_errors
 def evaluate(expression: str) -> Any:
     """Evaluate a JavaScript expression in the page context and return the
     result."""
@@ -722,12 +856,17 @@ def evaluate(expression: str) -> Any:
 
 
 @mcp.tool()
+@handle_sb_errors
 def execute_script(script: str) -> Any:
-    """Execute JavaScript in the page context and return the result."""
+    """Execute JavaScript in the page context and return the result.
+    This method can run any arbitrary JavaScript on any site,
+    so take any necessary precautions to prevent AI harnesses
+    from running scripts that you don't want them to run."""
     return _get_sb().execute_script(script)
 
 
 @mcp.tool()
+@handle_sb_errors
 def highlight(selector: str, loops: int = 4) -> str:
     """Briefly highlight an element with a colored animation — useful for
     narrating actions on a visible/headed browser."""
@@ -736,6 +875,7 @@ def highlight(selector: str, loops: int = 4) -> str:
 
 
 @mcp.tool()
+@handle_sb_errors
 def flash(selector: str, duration: float = 1) -> str:
     """Flash an element to draw attention to it."""
     _get_sb().flash(selector, duration=duration)
@@ -743,6 +883,7 @@ def flash(selector: str, duration: float = 1) -> str:
 
 
 @mcp.tool()
+@handle_sb_errors
 def sleep(seconds: float) -> str:
     """Pause execution for a number of seconds."""
     _get_sb().sleep(seconds)

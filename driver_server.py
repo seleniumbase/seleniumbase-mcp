@@ -5,12 +5,14 @@ SeleniumBase MCP Server
 Exposes SeleniumBase browser automation as tools callable by any MCP client
 (Claude Desktop, Claude Code, etc.) over stdio.
 
-Model: one persistent browser session per server process. Call start_browser
-once, drive it with the other tools, then close_browser when done.
+Model: One persistent browser session per server process.
+Call start_browser once; drive it with the other tools; then close_browser.
 """
 from __future__ import annotations
 import atexit
 import sys
+from functools import wraps
+from typing import Any
 from mcp.server import MCPServer
 from seleniumbase import Driver
 
@@ -25,11 +27,26 @@ def _get_driver() -> Driver:
     return _driver
 
 
+def handle_sb_errors(func):
+    """Catches SeleniumBase errors and surfaces them as descriptive strings
+    so the LLM agent can read them and self-correct."""
+    @wraps(func)
+    def wrapper(*args, **kwargs):
+        try:
+            return func(*args, **kwargs)
+        except Exception as e:
+            error_type = e.__class__.__name__
+            error_msg = str(e).strip()
+            return f"Error in {func.__name__}: {error_type} - {error_msg}"
+    return wrapper
+
+
 # ---------------------------------------------------------------------------
 # Session lifecycle
 # ---------------------------------------------------------------------------
 
 @mcp.tool()
+@handle_sb_errors
 def start_browser(
     browser: str = "chrome",
     headless: bool = False,
@@ -69,6 +86,7 @@ def start_browser(
 
 
 @mcp.tool()
+@handle_sb_errors
 def close_browser() -> str:
     """Close the browser and end the session."""
     global _driver
@@ -84,40 +102,55 @@ def close_browser() -> str:
 # ---------------------------------------------------------------------------
 
 @mcp.tool()
+@handle_sb_errors
 def navigate(url: str) -> str:
-    """Navigate to a URL."""
+    """Navigate to the given URL in the web browser.
+    If the URL doesn't start with a protocol (eg: `https://`),
+      then `https://` is automatically prefixed in before navigation.
+    Waits until the initial HTML document is fully parsed and loaded.
+    New pages visited will show up in browser navigation history.
+    If the URL is invalid or the page can't load due to an issue,
+      then the corresponding errors will be raised."""
     _get_driver().open(url)
     return f"Navigated to {url}"
 
 
 @mcp.tool()
+@handle_sb_errors
 def go_back() -> str:
-    """Go back one page in browser history."""
+    """Go back one page in browser history.
+    Same as clicking the Back button in the web browser."""
     _get_driver().go_back()
     return "Navigated back."
 
 
 @mcp.tool()
+@handle_sb_errors
 def go_forward() -> str:
-    """Go forward one page in browser history."""
+    """Go forward one page in browser history.
+    Same as clicking the Forward button in the web browser."""
     _get_driver().go_forward()
     return "Navigated forward."
 
 
 @mcp.tool()
+@handle_sb_errors
 def refresh_page() -> str:
-    """Refresh the current page."""
+    """Refresh the current page.
+    Same as clicking the Reload button in the web browser."""
     _get_driver().refresh_page()
     return "Page refreshed."
 
 
 @mcp.tool()
+@handle_sb_errors
 def get_current_url() -> str:
     """Get the URL of the current page."""
     return _get_driver().get_current_url()
 
 
 @mcp.tool()
+@handle_sb_errors
 def get_title() -> str:
     """Get the title of the current page."""
     return _get_driver().get_title()
@@ -128,24 +161,30 @@ def get_title() -> str:
 # ---------------------------------------------------------------------------
 
 @mcp.tool()
+@handle_sb_errors
 def get_page_source() -> str:
     """Get the full HTML source of the current page."""
     return _get_driver().get_page_source()
 
 
 @mcp.tool()
+@handle_sb_errors
 def get_text(selector: str) -> str:
-    """Get the visible text of an element matched by a CSS selector."""
+    """Get the visible text of an element matched by a CSS selector.
+    Raises an exception if the element isn't found within the default timeout.
+    """
     return _get_driver().get_text(selector)
 
 
 @mcp.tool()
+@handle_sb_errors
 def find_elements_count(selector: str) -> int:
     """Count how many elements on the page match a CSS selector."""
     return len(_get_driver().find_elements(selector))
 
 
 @mcp.tool()
+@handle_sb_errors
 def is_element_visible(selector: str) -> bool:
     """Check whether an element matched by a CSS selector is visible."""
     return _get_driver().is_element_visible(selector)
@@ -156,45 +195,70 @@ def is_element_visible(selector: str) -> bool:
 # ---------------------------------------------------------------------------
 
 @mcp.tool()
-def click(selector: str, by: str = "css") -> str:
-    """Click an element.
-
-    Args:
-        selector: CSS selector or XPath string identifying the element.
-        by: "css" or "xpath".
-    """
+@handle_sb_errors
+def click(selector: str, timeout: int = 7) -> str:
+    """Click an element matched by the given selector.
+    Raises an exception if the element isn't found within the timeout."""
     d = _get_driver()
-    d.click(f"xpath={selector}" if by == "xpath" else selector)
+    d.click(selector, timeout=timeout)
     return f"Clicked {selector}"
 
 
 @mcp.tool()
-def type_text(selector: str, text: str, clear_first: bool = True) -> str:
-    """Type text into an input field.
-
+@handle_sb_errors
+def type_text(
+    selector: str, text: str, clear_first: bool = True, timeout: int = 7
+) -> str:
+    """Type text into an input field / textarea.
+    Raises an exception if the element isn't found within the timeout.
     Args:
-        selector: CSS selector for the field.
-        text: Text to type.
+        selector: The selector for the field.
+        text: The text to type.
         clear_first: Clear the field's existing contents before typing.
-    """
+        timeout: The maximum time to wait for an element in seconds."""
     d = _get_driver()
     if clear_first:
-        d.type(selector, text)
+        d.type(selector, text, timeout=timeout)
     else:
-        d.add_text(selector, text)
+        d.add_text(selector, text, timeout=timeout)
     return f"Typed into {selector}"
 
 
 @mcp.tool()
-def select_option(selector: str, option_text: str) -> str:
-    """Select a dropdown (<select>) option by its visible text."""
-    _get_driver().select_option_by_text(selector, option_text)
-    return f"Selected '{option_text}' in {selector}"
+@handle_sb_errors
+def select_option_by_text(dropdown_selector: str, option: str) -> str:
+    """Select a <select> dropdown option by its visible text.
+    Raises an exception if the element or option aren't found
+      within the default timeout, which is 7 seconds."""
+    _get_driver().select_option_by_text(dropdown_selector, option)
+    return f"Selected text '{option}' in {dropdown_selector}"
 
 
 @mcp.tool()
+@handle_sb_errors
+def select_option_by_value(dropdown_selector: str, option: str) -> str:
+    """Select a <select> dropdown option by its value attribute.
+    Raises an exception if the element or option aren't found
+      within the default timeout, which is 7 seconds."""
+    _get_driver().select_option_by_value(dropdown_selector, option)
+    return f"Selected value '{option}' in {dropdown_selector}"
+
+
+@mcp.tool()
+@handle_sb_errors
+def select_option_by_index(dropdown_selector: str, option: str) -> str:
+    """Select a <select> dropdown option by its 0-based index.
+    Raises an exception if the element or option aren't found
+      within the default timeout, which is 7 seconds."""
+    _get_driver().select_option_by_index(dropdown_selector, option)
+    return f"Selected index '{option}' in {dropdown_selector}"
+
+
+@mcp.tool()
+@handle_sb_errors
 def wait_for_element(selector: str, timeout: int = 10) -> str:
-    """Wait until an element matched by a CSS selector appears."""
+    """Wait until an element matched by a CSS selector appears.
+    Raises an exception if the element isn't found within the given timeout."""
     _get_driver().wait_for_element(selector, timeout=timeout)
     return f"Element {selector} appeared."
 
@@ -204,6 +268,7 @@ def wait_for_element(selector: str, timeout: int = 10) -> str:
 # ---------------------------------------------------------------------------
 
 @mcp.tool()
+@handle_sb_errors
 def switch_to_frame(selector: str) -> str:
     """Switch driver focus into an iframe matched by a CSS selector."""
     _get_driver().switch_to_frame(selector)
@@ -211,6 +276,7 @@ def switch_to_frame(selector: str) -> str:
 
 
 @mcp.tool()
+@handle_sb_errors
 def switch_to_default_content() -> str:
     """Switch driver focus back out to the main page (out of any iframe)."""
     _get_driver().switch_to_default_content()
@@ -222,11 +288,10 @@ def switch_to_default_content() -> str:
 # ---------------------------------------------------------------------------
 
 @mcp.tool()
+@handle_sb_errors
 def assert_text(text: str, selector: str | None = None) -> str:
     """Assert that text is present on the page, or within a specific element.
-
-    Raises an error (returned as a tool error to the client) if not found.
-    """
+    Raises an error (returned as a tool error to the client) if not found."""
     d = _get_driver()
     if selector:
         d.assert_text(text, selector)
@@ -240,15 +305,17 @@ def assert_text(text: str, selector: str | None = None) -> str:
 # ---------------------------------------------------------------------------
 
 @mcp.tool()
+@handle_sb_errors
 def activate_cdp_mode(url: str | None = None) -> str:
-    """Switch the current session into Pure CDP Mode, optionally navigating
-    to a URL. Once active, CDP-only capabilities (e.g. more thorough
-    stealth) apply to subsequent actions. Requires uc=True."""
+    """Switch the current browser session into CDP Mode, which adds stealth
+    capabilities and additional methods that use the Chrome DevTools Protocol.
+    You can optionally specify a URL to navigate to. Requires uc=True."""
     _get_driver().activate_cdp_mode(url)
     return f"CDP Mode activated (url={url!r})"
 
 
 @mcp.tool()
+@handle_sb_errors
 def solve_captcha() -> str:
     """Attempt to solve a captcha (e.g. Cloudflare Turnstile) on the page."""
     _get_driver().solve_captcha()
@@ -260,6 +327,7 @@ def solve_captcha() -> str:
 # ---------------------------------------------------------------------------
 
 @mcp.tool()
+@handle_sb_errors
 def screenshot(filename: str = "screenshot.png") -> str:
     """Take a screenshot of the current page and save it to disk."""
     _get_driver().save_screenshot(filename)
@@ -267,8 +335,12 @@ def screenshot(filename: str = "screenshot.png") -> str:
 
 
 @mcp.tool()
-def execute_script(script: str):
-    """Execute JavaScript in the page context and return the result."""
+@handle_sb_errors
+def execute_script(script: str) -> Any:
+    """Execute JavaScript in the page context and return the result.
+    This method can run any arbitrary JavaScript on any site,
+    so take any necessary precautions to prevent AI harnesses
+    from running scripts that you don't want them to run."""
     return _get_driver().execute_script(script)
 
 
