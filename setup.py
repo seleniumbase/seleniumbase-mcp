@@ -1,0 +1,168 @@
+"""The setup package to install seleniumbase-mcp dependencies"""
+from setuptools import setup, find_packages  # noqa
+import os
+import sys
+
+
+this_directory = os.path.abspath(os.path.dirname(__file__))
+long_description = None
+total_description = None
+try:
+    with open(os.path.join(this_directory, "README.md"), "rb") as f:
+        total_description = f.read().decode("utf-8")
+    description_lines = total_description.split('\n')
+    long_description_lines = []
+    for line in description_lines:
+        if not line.startswith("<meta ") and not line.startswith("<link "):
+            long_description_lines.append(line)
+    long_description = "\n".join(long_description_lines)
+except IOError:
+    long_description = (
+        "MCP servers exposing SeleniumBase as tools for MCP clients."
+    )
+
+if sys.argv[-1] == "publish":
+    reply = None
+    input_method = input
+    confirm_text = ">>> Confirm release PUBLISH to PyPI? (yes/no): "
+    reply = str(input_method(confirm_text)).lower().strip()
+    if reply == "yes":
+        if sys.version_info < (3, 10):
+            current_ver = ".".join(str(ver) for ver in sys.version_info[:3])
+            print("\nERROR! Publishing to PyPI requires Python>=3.10")
+            print("You are currently using Python %s\n" % current_ver)
+            sys.exit()
+        print("\n*** Checking code health with flake8:\n")
+        os.system("python -m pip install 'flake8==7.3.0'")
+        flake8_status = os.system("flake8 --exclude=recordings,temp")
+        if flake8_status != 0:
+            print("\nERROR! Fix flake8 issues before publishing to PyPI!\n")
+            sys.exit()
+        else:
+            print("*** No flake8 issues detected. Continuing...")
+        print("\n*** Removing existing distribution packages: ***\n")
+        os.system("rm -f dist/*.egg; rm -f dist/*.tar.gz; rm -f dist/*.whl")
+        os.system("rm -rf build/bdist.*; rm -rf build/lib")
+        print("\n*** Installing build: *** (Required for PyPI uploads)\n")
+        os.system("python -m pip install --upgrade 'build'")
+        print("\n*** Installing pkginfo: *** (Required for PyPI uploads)\n")
+        os.system("python -m pip install --upgrade 'pkginfo'")
+        print("\n*** Installing readme-renderer: *** (For PyPI uploads)\n")
+        os.system("python -m pip install --upgrade 'readme-renderer'")
+        print("\n*** Installing jaraco.classes: *** (For PyPI uploads)\n")
+        os.system("python -m pip install --upgrade 'jaraco.classes'")
+        print("\n*** Installing more-itertools: *** (For PyPI uploads)\n")
+        os.system("python -m pip install --upgrade 'more-itertools'")
+        print("\n*** Installing keyring, requests-toolbelt: *** (For PyPI)\n")
+        os.system("python -m pip install --upgrade keyring requests-toolbelt")
+        print("\n*** Installing twine: *** (Required for PyPI uploads)\n")
+        os.system("python -m pip install --upgrade 'twine'")
+        print("\n*** Rebuilding distribution packages: ***\n")
+        os.system("python -m build")  # Create new tar/wheel
+        print("\n*** Publishing The Release to PyPI: ***\n")
+        os.system("python -m twine upload dist/*")  # Requires ~/.pypirc Keys
+        print("\n*** The Release was PUBLISHED SUCCESSFULLY to PyPI! :) ***\n")
+    else:
+        print("\n>>> The Release was NOT PUBLISHED to PyPI! <<<\n")
+    sys.exit()
+
+setup(
+    name="seleniumbase-mcp",
+    version="1.2.0",
+    description="MCP servers exposing SeleniumBase as tools for MCP clients.",
+    long_description=long_description,
+    long_description_content_type="text/markdown",
+    platforms=["Windows", "Linux", "Mac OS-X"],
+    url="https://github.com/seleniumbase/seleniumbase-mcp",
+    author="Michael Mintz",
+    author_email="mdmintz@gmail.com",
+    maintainer="Michael Mintz",
+    license="MIT",
+    keywords=[
+        "mcp",
+        "model-context-protocol",
+        "seleniumbase",
+        "sbase",
+        "selenium",
+        "webdriver",
+        "browser-automation",
+        "web-scraping",
+        "cdp",
+        "chrome-devtools-protocol",
+        "claude",
+        "claude-desktop",
+        "claude-code",
+        "ai-agent",
+        "llm-tools",
+        "testing",
+        "stealth",
+        "bot-detection",
+        "captcha",
+    ],
+    classifiers=[
+        "Development Status :: 5 - Production/Stable",
+        "Environment :: Console",
+        "Environment :: MacOS X",
+        "Environment :: Win32 (MS Windows)",
+        "Environment :: Web Environment",
+        "Intended Audience :: Developers",
+        "Intended Audience :: Information Technology",
+        "Operating System :: MacOS :: MacOS X",
+        "Operating System :: Microsoft :: Windows",
+        "Operating System :: POSIX :: Linux",
+        "Operating System :: Unix",
+        "Programming Language :: Python",
+        "Programming Language :: Python :: 3",
+        "Programming Language :: Python :: 3.10",
+        "Programming Language :: Python :: 3.11",
+        "Programming Language :: Python :: 3.12",
+        "Programming Language :: Python :: 3.13",
+        "Programming Language :: Python :: 3.14",
+        "Programming Language :: Python :: 3.15",
+        "Topic :: Internet",
+        "Topic :: Internet :: WWW/HTTP :: Browsers",
+        "Topic :: Scientific/Engineering",
+        "Topic :: Scientific/Engineering :: Artificial Intelligence",
+        "Topic :: Scientific/Engineering :: Image Processing",
+        "Topic :: Scientific/Engineering :: Visualization",
+        "Topic :: Software Development",
+        "Topic :: Software Development :: Quality Assurance",
+        "Topic :: Software Development :: Code Generators",
+        "Topic :: Software Development :: Libraries",
+        "Topic :: Software Development :: Libraries :: Application Frameworks",
+        "Topic :: Software Development :: Libraries :: Python Modules",
+        "Topic :: Software Development :: Testing",
+        "Topic :: Software Development :: Testing :: Acceptance",
+        "Topic :: Software Development :: Testing :: Traffic Generation",
+        "Topic :: Utilities",
+    ],
+    python_requires=">=3.10",
+    install_requires=[
+        "seleniumbase[mcp]>=4.53.1",
+        "mcp[cli]>=2.1.1,<3.0.0",
+    ],
+    extras_require={
+        "deploy": [
+            "build>=1.0.0",
+            "twine>=7.0.0",
+        ],
+        "uv": [
+            "uv>=0.12.7",
+        ],
+        "dev": [
+            "uv>=0.12.7",
+        ],
+    },
+    entry_points={
+        "console_scripts": [
+            "seleniumbase-cdp=cdp_server:main",
+            "seleniumbase-driver=driver_server:main",
+            "seleniumbase-sb=sb_server:main",
+        ],
+    },
+    py_modules=[
+        "cdp_server",
+        "driver_server",
+        "sb_server",
+    ],
+)
