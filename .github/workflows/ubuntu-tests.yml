@@ -1,4 +1,4 @@
-name: MCP smoke test
+name: MCP smoke test (ubuntu-latest)
 
 on:
   push:
