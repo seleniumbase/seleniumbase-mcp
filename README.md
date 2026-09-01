@@ -196,19 +196,19 @@ in the loop at all. Reference:
 
 ### Tool groups
 
-| Group | Examples |
-|---|---|
-| Session | `start_browser(url, headless, incognito, guest, proxy, ad_block)`, `close_browser` |
-| Navigation | `navigate`, `reload_page`, `go_back`/`go_forward`, `get_current_url`, `get_title` |
-| Finding & reading | `find_element_info`, `find_all_info`, `get_text`, `get_html_source`, `get_element_attribute(s)`, `is_element_present/visible` |
-| Interacting | `click`, `click_if_visible`, `click_visible_elements`, `type_text`, `send_keys`, `set_value`, `select_option_by_text/value/index`, `nested_click` |
-| Waiting | `wait_for_element_present`, `wait_for_element_visible/not_visible/absent`, `wait_for_text` |
-| Assertions | `assert_element`, `assert_text`, `assert_exact_text`, `assert_title`, `assert_url(_contains)` |
-| Cookies & storage | `get_all_cookies`, `save_cookies`/`load_cookies`, `get/set_local_storage_item`, `get/set_session_storage_item` |
-| Scrolling | `scroll_into_view`, `scroll_to_top/bottom`, `scroll_up/down` |
-| Tabs & windows | `open_new_tab`, `switch_to_tab`/`switch_to_newest_tab`, `close_active_tab`, `maximize`/`minimize`, `get/set_window_rect` |
-| Captcha | `solve_captcha` |
-| Output | `save_screenshot`, `save_page_source`, `save_as_pdf`, `evaluate` |
+| Group             | Tool(s)                                                                                                                                          |
+| ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Session           | `start_browser(url, headless, use_chromium, browser_executable_path, incognito, guest, ad_block, proxy)`, `close_browser`                        |
+| Navigation        | `navigate`, `navigate_history(action: back/forward/reload)`, `get_page_info` (running status, url, title, origin, user agent, history in one call) |
+| Finding & reading | `find_elements(selector, timeout, include_html)`, `get_content(selector, output_format: text/html/urls, include_shadow_dom)`, `get_attributes`, `check_state(check: present/visible/count/text_visible)` |
+| Interacting       | `click(selector, nth, all_matches, only_if_visible, parent_selector, timeout, scroll)`, `hover_with_action(selector1, selector2, action: none/click/drag_and_drop)`, `fill_input(mode: type/append/set_value/fast_type/clear)`, `select_option(by: text/value/index)`, `focus_on(action: scroll_to_element/focus/highlight)` |
+| Waiting           | `wait_for(state: present/visible/not_visible/absent, text)`                                                                                        |
+| Assertions        | `assert_that(check: element_present/element_visible/text/title/url/url_contains)`                                                                  |
+| Cookies & storage | `manage_cookies(action: get_all/clear/save/load)`, `manage_storage(storage: local/session, action: get/set)`                                       |
+| Scrolling         | `scroll(direction: up/down/top/bottom, amount)`                                                                                                    |
+| Windows & tabs    | `manage_window(action: get_rect/set_rect/maximize/minimize)`, `manage_tabs(action: list/open/switch/switch_newest/close_active)`                   |
+| Captcha           | `solve_captcha`                                                                                                                                    |
+| Output & misc     | `save_output(format: screenshot/html/pdf)`, `run_javascript`, `wait_seconds`                                                                        |
 
 ### CDP-specific design notes
 
