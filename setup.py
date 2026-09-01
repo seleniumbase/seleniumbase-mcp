@@ -34,7 +34,9 @@ if sys.argv[-1] == "publish":
             sys.exit()
         print("\n*** Checking code health with flake8:\n")
         os.system("python -m pip install 'flake8==7.3.0'")
-        flake8_status = os.system("flake8 --exclude=recordings,temp")
+        flake8_status = os.system(
+            "flake8 --exclude=recordings,temp,venv,.venv"
+        )
         if flake8_status != 0:
             print("\nERROR! Fix flake8 issues before publishing to PyPI!\n")
             sys.exit()
@@ -68,7 +70,7 @@ if sys.argv[-1] == "publish":
 
 setup(
     name="seleniumbase-mcp",
-    version="1.2.0",
+    version="1.2.1",
     description="MCP servers exposing SeleniumBase as tools for MCP clients.",
     long_description=long_description,
     long_description_content_type="text/markdown",
@@ -138,7 +140,7 @@ setup(
     ],
     python_requires=">=3.10",
     install_requires=[
-        "seleniumbase[mcp]>=4.53.1",
+        "seleniumbase[mcp]>=4.53.3",
         "mcp[cli]>=2.1.1,<3.0.0",
     ],
     extras_require={
@@ -147,10 +149,10 @@ setup(
             "twine>=7.0.0",
         ],
         "uv": [
-            "uv>=0.12.7",
+            "uv>=0.12.8",
         ],
         "dev": [
-            "uv>=0.12.7",
+            "uv>=0.12.8",
         ],
     },
     entry_points={
