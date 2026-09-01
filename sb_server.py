@@ -26,7 +26,7 @@ from __future__ import annotations
 import atexit
 import sys
 from functools import wraps
-from typing import Any
+from typing import Any, Literal
 from mcp.server import MCPServer
 from seleniumbase import SB
 
@@ -63,32 +63,54 @@ def handle_sb_errors(func):
 @mcp.tool()
 @handle_sb_errors
 def start_browser(
-    browser: str = "chrome",
-    headless: bool = False,
+    browser: Literal["chrome", "edge", "firefox", "chromium"] = "chrome",
+    headless: bool | None = None,
     uc: bool = True,
     incognito: bool = False,
     guest_mode: bool = False,
-    proxy: str | None = None,
     ad_block: bool = False,
+    proxy: str | None = None,
 ) -> str:
     """Start a new SB() session. Must be called before any other tool.
     Args:
-        browser: "chrome", "edge", or "firefox".
-        headless: Run without a visible window.
+        browser: "chrome", "edge", "firefox", or "chromium".
+        headless: Controls whether the browser runs without a visible window.
+            If True, always run headless. If False, always run headed.
+            If omitted (None), the default depends on the operating system:
+            Linux defaults to headless because MCP/server environments
+            commonly do not have a graphical desktop, while Windows and macOS
+            default to headed so that a visible browser window is available.
+            Use True or False to explicitly override the OS-specific default
+            on any operating system.
         uc: Undetected-Chromedriver (UC Mode) — evades bot detection.
         incognito: Launch in a private/incognito window.
         guest_mode: Launch in Chrome guest mode.
-        proxy: Proxy string, e.g. "USER:PASS@SERVER:PORT" or "SERVER:PORT".
         ad_block: Block ads.
+        proxy: Proxy string, e.g. "USER:PASS@SERVER:PORT" or "SERVER:PORT".
     """
     global _sb_context, _sb
     if _sb is not None:
         return (
             "A browser session is already running. Call close_browser first."
         )
+
+    # OS-specific default:
+    # - Linux: headless by default for server/container compatibility.
+    # - Windows/macOS: headed by default for interactive desktop use.
+    # - Explicit True/False always overrides the OS default.
+    if headless is None:
+        headless = sys.platform.startswith("linux")
+
+    use_chromium = False
+    if browser == "chromium":
+        use_chromium = True
+        browser = "chrome"
+
     kwargs: dict[str, Any] = {
         "browser": browser, "headless": headless, "test": False
     }
+    if use_chromium:
+        kwargs["use_chromium"] = True
     if uc:
         kwargs["uc"] = True
     if incognito:
@@ -99,25 +121,72 @@ def start_browser(
         kwargs["proxy"] = proxy
     if ad_block:
         kwargs["ad_block"] = True
-    _sb_context = SB(**kwargs)
-    _sb = _sb_context.__enter__()
-    return (
-        f"Started SB() session with browser={browser}, "
-        f"headless={headless}, uc={uc}."
-    )
+    try:
+        _sb_context = SB(**kwargs)
+        _sb = _sb_context.__enter__()
+        return (
+            f"Started SB() session with browser={browser}, "
+            f"headless={headless}, uc={uc}."
+        )
+    except Exception as e:
+        if _sb is not None:
+            try:
+                _sb.quit()
+            except Exception:
+                pass
+            _sb_context = None
+            _sb = None
+        return (
+            f"Error starting browser: "
+            f"{e.__class__.__name__} - {str(e).strip()}"
+        )
 
 
 @mcp.tool()
 @handle_sb_errors
 def close_browser() -> str:
-    """Close the browser and end the session."""
     global _sb_context, _sb
     if _sb_context is None:
         return "No browser session was running."
-    _sb_context.__exit__(None, None, None)
-    _sb_context = None
-    _sb = None
+    try:
+        _sb_context.__exit__(None, None, None)
+    finally:
+        _sb_context = None
+        _sb = None
     return "Browser closed."
+
+
+# ---------------------------------------------------------------------------
+# Page information
+# ---------------------------------------------------------------------------
+
+@mcp.tool()
+@handle_sb_errors
+def browser_status() -> dict:
+    """Return basic information about the current browser session."""
+    if _sb is None:
+        return {
+            "running": False,
+        }
+
+    return {
+        "running": True,
+        "url": _sb.get_current_url(),
+        "title": _sb.get_title(),
+    }
+
+
+@mcp.tool()
+@handle_sb_errors
+def page_snapshot() -> dict:
+    """Return compact information about the current page."""
+    sb = _get_sb()
+
+    return {
+        "url": sb.get_current_url(),
+        "title": sb.get_title(),
+        "text": sb.get_text("body"),
+    }
 
 
 # ---------------------------------------------------------------------------
@@ -891,13 +960,14 @@ def sleep(seconds: float) -> str:
 
 
 def _cleanup_browser():
-    global _sb
-    if _sb is not None:
+    global _sb_context, _sb
+    if _sb_context is not None:
         try:
-            _sb.quit()
+            _sb_context.__exit__(None, None, None)
         except Exception:
             pass
-        _sb = None
+    _sb_context = None
+    _sb = None
 
 
 def main():

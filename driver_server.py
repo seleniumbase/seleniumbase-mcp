@@ -12,7 +12,7 @@ from __future__ import annotations
 import atexit
 import sys
 from functools import wraps
-from typing import Any
+from typing import Any, Literal
 from mcp.server import MCPServer
 from seleniumbase import Driver
 
@@ -48,41 +48,79 @@ def handle_sb_errors(func):
 @mcp.tool()
 @handle_sb_errors
 def start_browser(
-    browser: str = "chrome",
-    headless: bool = False,
+    browser: Literal["chrome", "edge", "firefox", "chromium"] = "chrome",
+    headless: bool | None = None,
     uc: bool = True,
     incognito: bool = False,
     guest_mode: bool = False,
-    proxy: str | None = None,
     ad_block: bool = False,
+    proxy: str | None = None,
 ) -> str:
     """Start a new browser session. Must be called before any other tool.
-
     Args:
-        headless: Run without a visible window. Set False if you need to
-            watch the browser or if a site blocks headless clients.
-        browser: "chrome", "edge", or "firefox".
+        browser: "chrome", "edge", "firefox", or "chromium".
+        headless: Controls whether the browser runs without a visible window.
+            If True, always run headless. If False, always run headed.
+            If omitted (None), the default depends on the operating system:
+            Linux defaults to headless because MCP/server environments
+            commonly do not have a graphical desktop, while Windows and macOS
+            default to headed so that a visible browser window is available.
+            Use True or False to explicitly override the OS-specific default
+            on any operating system.
         uc: Undetected-chromedriver mode, useful for sites with bot detection.
-        incognito: Launch in a private/incognito window.
+            (The `uc` option is for Chrome/Chromium, only!)
+        incognito: Launch Chrome/Chromium in incognito mode.
+        guest: Launch Chrome/Chromium in guest mode.
+            (Do not combine this with incognito=True.)
+        ad_block: Enable SeleniumBase's basic ad-blocking functionality.
+        proxy: Optional proxy server. Examples include
+            "SERVER:PORT" or "USER:PASS@SERVER:PORT".
     """
     global _driver
     if _driver is not None:
         return (
             "A browser session is already running. Call close_browser first."
         )
-    _driver = Driver(
-        browser=browser,
-        headless=headless,
-        uc=uc,
-        incognito=incognito,
-        guest_mode=guest_mode,
-        proxy=proxy,
-        ad_block=ad_block,
-    )
-    return (
-        f"Started Driver() session with browser={browser}, "
-        f"headless={headless}, uc={uc}."
-    )
+
+    # OS-specific default:
+    # - Linux: headless by default for server/container compatibility.
+    # - Windows/macOS: headed by default for interactive desktop use.
+    # - Explicit True/False always overrides the OS default.
+    if headless is None:
+        headless = sys.platform.startswith("linux")
+
+    use_chromium = False
+    if browser == "chromium":
+        use_chromium = True
+        browser = "chrome"
+
+    try:
+        _driver = Driver(
+            browser=browser,
+            headless=headless,
+            use_chromium=use_chromium,
+            uc=uc,
+            incognito=incognito,
+            guest_mode=guest_mode,
+            ad_block=ad_block,
+            proxy=proxy,
+        )
+        return (
+            f"Started Driver() session with browser={browser}, "
+            f"headless={headless}, uc={uc}."
+        )
+    except Exception as e:
+        if _driver is not None:
+            try:
+                _driver.quit()
+            except Exception:
+                pass
+            _driver = None
+
+        return (
+            f"Error starting browser: "
+            f"{e.__class__.__name__} - {str(e).strip()}"
+        )
 
 
 @mcp.tool()
@@ -196,7 +234,7 @@ def is_element_visible(selector: str) -> bool:
 
 @mcp.tool()
 @handle_sb_errors
-def click(selector: str, timeout: int = 7) -> str:
+def click(selector: str, timeout: int | float | None = 7) -> str:
     """Click an element matched by the given selector.
     Raises an exception if the element isn't found within the timeout."""
     d = _get_driver()
@@ -207,7 +245,10 @@ def click(selector: str, timeout: int = 7) -> str:
 @mcp.tool()
 @handle_sb_errors
 def type_text(
-    selector: str, text: str, clear_first: bool = True, timeout: int = 7
+    selector: str,
+    text: str,
+    clear_first: bool = True,
+    timeout: int | float | None = 7,
 ) -> str:
     """Type text into an input field / textarea.
     Raises an exception if the element isn't found within the timeout.
@@ -256,7 +297,7 @@ def select_option_by_index(dropdown_selector: str, option: str) -> str:
 
 @mcp.tool()
 @handle_sb_errors
-def wait_for_element(selector: str, timeout: int = 10) -> str:
+def wait_for_element(selector: str, timeout: int | float | None = 10) -> str:
     """Wait until an element matched by a CSS selector appears.
     Raises an exception if the element isn't found within the given timeout."""
     _get_driver().wait_for_element(selector, timeout=timeout)
