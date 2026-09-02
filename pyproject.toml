@@ -26,7 +26,7 @@ SeleniumBase = "https://github.com/seleniumbase/SeleniumBase"
 
 [dependency-groups]  # Used by `uv sync`
 dev = [
-    "uv>=0.12.8",  # Needed for `mcp dev`
+    "uv>=0.12.9",  # Needed for `mcp dev`
 ]
 
 [build-system]
