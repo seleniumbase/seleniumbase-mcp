@@ -252,6 +252,7 @@ def type_text(
 ) -> str:
     """Type text into an input field / textarea.
     Raises an exception if the element isn't found within the timeout.
+    Optionally clear the text field first. (Default: True)
     Args:
         selector: The selector for the field.
         text: The text to type.
@@ -260,9 +261,10 @@ def type_text(
     d = _get_driver()
     if clear_first:
         d.type(selector, text, timeout=timeout)
+        return f"Typed {text} into {selector} after clearing the field."
     else:
-        d.add_text(selector, text, timeout=timeout)
-    return f"Typed into {selector}"
+        d.send_keys(selector, text, timeout=timeout)
+        return f"Typed {text} into {selector}"
 
 
 @mcp.tool()
@@ -287,11 +289,14 @@ def select_option_by_value(dropdown_selector: str, option: str) -> str:
 
 @mcp.tool()
 @handle_sb_errors
-def select_option_by_index(dropdown_selector: str, option: str) -> str:
+def select_option_by_index(
+    dropdown_selector: str,
+    option: str | int,
+) -> str:
     """Select a <select> dropdown option by its 0-based index.
     Raises an exception if the element or option aren't found
       within the default timeout, which is 7 seconds."""
-    _get_driver().select_option_by_index(dropdown_selector, option)
+    _get_driver().select_option_by_index(dropdown_selector, int(option))
     return f"Selected index '{option}' in {dropdown_selector}"
 
 
@@ -330,15 +335,33 @@ def switch_to_default_content() -> str:
 
 @mcp.tool()
 @handle_sb_errors
-def assert_text(text: str, selector: str | None = None) -> str:
-    """Assert that text is present on the page, or within a specific element.
+def assert_text(
+    text: str,
+    selector: str | None = None,
+    timeout: int | float | None = 7,
+) -> str:
+    """Assert that text is visible on the page, or within a specific element.
     Raises an error (returned as a tool error to the client) if not found."""
     d = _get_driver()
     if selector:
-        d.assert_text(text, selector)
+        d.assert_text(text, selector, timeout=timeout)
+        return f"Confirmed text '{text}' is visible in selector {selector}."
     else:
-        d.assert_text(text)
-    return f"Confirmed '{text}' is present."
+        d.assert_text(text, timeout=timeout)
+        return f"Confirmed text '{text}' is visible."
+
+
+@mcp.tool()
+@handle_sb_errors
+def assert_element(
+    selector: str,
+    timeout: int | float | None = 7
+) -> str:
+    """Assert that an element is visible on the page.
+    Raises an error (returned as a tool error to the client) if not found."""
+    d = _get_driver()
+    d.assert_element(selector, timeout=timeout)
+    return f"Confirmed '{selector}' is present."
 
 
 # ---------------------------------------------------------------------------

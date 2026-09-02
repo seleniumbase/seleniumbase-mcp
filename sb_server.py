@@ -410,22 +410,27 @@ def context_click(selector: str) -> str:
 
 @mcp.tool()
 @handle_sb_errors
-def type_text(selector: str, text: str) -> str:
-    """Clear a field and type text into it.
-    Raises an exception if the element isn't found within the default timeout.
+def type_text(
+    selector: str,
+    text: str,
+    clear_first: bool = True,
+    timeout: int | float | None = 7,
+) -> str:
+    """Type text into an input field / textarea.
+    Raises an exception if the element isn't found within the timeout.
+    Optionally clear the text field first. (Default: True)
+    Args:
+        selector: The selector for the field.
+        text: The text to type.
+        clear_first: Clear the field's existing contents before typing.
+        timeout: The maximum time to wait for an element in seconds.
     """
-    _get_sb().type(selector, text)
-    return f"Typed into {selector}"
-
-
-@mcp.tool()
-@handle_sb_errors
-def send_keys(selector: str, text: str) -> str:
-    """Send keystrokes to an element without clearing it first.
-    Raises an exception if the element isn't found within the default timeout.
-    """
-    _get_sb().send_keys(selector, text)
-    return f"Sent keys to {selector}"
+    if clear_first:
+        _get_sb().type(selector, text, timeout=timeout)
+        return f"Typed {text} into {selector} after clearing the field."
+    else:
+        _get_sb().send_keys(selector, text, timeout=timeout)
+        return f"Typed {text} into {selector}"
 
 
 @mcp.tool()
