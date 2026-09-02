@@ -201,9 +201,9 @@ in the loop at all. Reference:
 | Session           | `start_browser(url, headless, use_chromium, browser_executable_path, incognito, guest, ad_block, proxy)`, `close_browser`                        |
 | Navigation        | `navigate`, `navigate_history(action: back/forward/reload)`, `get_page_info` (running status, url, title, origin, user agent, history in one call) |
 | Finding & reading | `find_elements(selector, timeout, include_html)`, `get_content(selector, output_format: text/html/urls, include_shadow_dom)`, `get_attributes`, `check_state(check: present/visible/count/text_visible)` |
-| Interacting       | `click(selector, nth, all_matches, only_if_visible, parent_selector, timeout, scroll)`, `hover_with_action(selector1, selector2, action: none/click/drag_and_drop)`, `fill_input(mode: type/append/set_value/fast_type/clear)`, `select_option(by: text/value/index)`, `focus_on(action: scroll_to_element/focus/highlight)` |
+| Interacting       | `click(selector, nth, all_matches, only_if_visible, parent_selector, timeout, scroll)`, `hover_with_action(selector1, selector2, action: none/click/drag_and_drop)`, `type_text(mode: fill_input/append/fast_type/set_value/clear_only)`, `select_option(by: text/value/index)`, `focus_on(action: scroll_to_element/focus/highlight)` |
 | Waiting           | `wait_for(state: present/visible/not_visible/absent, text)`                                                                                        |
-| Assertions        | `assert_that(check: element_present/element_visible/text/title/url/url_contains)`                                                                  |
+| Assertions        | `assert_condition(check: element_present/element_visible/text_visible/title/url/url_contains)`                                                                  |
 | Cookies & storage | `manage_cookies(action: get_all/clear/save/load)`, `manage_storage(storage: local/session, action: get/set)`                                       |
 | Scrolling         | `scroll(direction: up/down/top/bottom, amount)`                                                                                                    |
 | Windows & tabs    | `manage_window(action: get_rect/set_rect/maximize/minimize)`, `manage_tabs(action: list/open/switch/switch_newest/close_active)`                   |
