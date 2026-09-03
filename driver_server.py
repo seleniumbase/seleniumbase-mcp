@@ -234,7 +234,7 @@ def is_element_visible(selector: str) -> bool:
 
 @mcp.tool()
 @handle_sb_errors
-def click(selector: str, timeout: int | float | None = 7) -> str:
+def click(selector: str, timeout: float = 7) -> str:
     """Click an element matched by the given selector.
     Raises an exception if the element isn't found within the timeout."""
     d = _get_driver()
@@ -248,7 +248,7 @@ def type_text(
     selector: str,
     text: str,
     clear_first: bool = True,
-    timeout: int | float | None = 7,
+    timeout: float = 7,
 ) -> str:
     """Type text into an input field / textarea.
     Raises an exception if the element isn't found within the timeout.
@@ -261,10 +261,10 @@ def type_text(
     d = _get_driver()
     if clear_first:
         d.type(selector, text, timeout=timeout)
-        return f"Typed {text} into {selector} after clearing the field."
+        return f"Typed into {selector} after clearing the field."
     else:
         d.send_keys(selector, text, timeout=timeout)
-        return f"Typed {text} into {selector}"
+        return f"Typed into {selector}"
 
 
 @mcp.tool()
@@ -302,7 +302,7 @@ def select_option_by_index(
 
 @mcp.tool()
 @handle_sb_errors
-def wait_for_element(selector: str, timeout: int | float | None = 10) -> str:
+def wait_for_element(selector: str, timeout: float = 10) -> str:
     """Wait until an element matched by a CSS selector appears.
     Raises an exception if the element isn't found within the given timeout."""
     _get_driver().wait_for_element(selector, timeout=timeout)
@@ -337,8 +337,8 @@ def switch_to_default_content() -> str:
 @handle_sb_errors
 def assert_text(
     text: str,
-    selector: str | None = None,
-    timeout: int | float | None = 7,
+    selector: str = "",
+    timeout: float = 7,
 ) -> str:
     """Assert that text is visible on the page, or within a specific element.
     Raises an error (returned as a tool error to the client) if not found."""
@@ -355,7 +355,7 @@ def assert_text(
 @handle_sb_errors
 def assert_element(
     selector: str,
-    timeout: int | float | None = 7
+    timeout: float = 7,
 ) -> str:
     """Assert that an element is visible on the page.
     Raises an error (returned as a tool error to the client) if not found."""
