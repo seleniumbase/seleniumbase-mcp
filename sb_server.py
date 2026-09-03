@@ -344,7 +344,10 @@ def is_selected(selector: str) -> bool | str:
 
 @mcp.tool()
 @handle_sb_errors
-def click(selector: str, timeout: int | None = None) -> str:
+def click(
+    selector: str,
+    timeout: float = 7,
+) -> str:
     """Click an element matched by the given CSS selector.
     Raises an exception if the element isn't found within the timeout."""
     _get_sb().click(selector, timeout=timeout)
@@ -390,11 +393,14 @@ def click_link(link_text: str) -> str:
 
 @mcp.tool()
 @handle_sb_errors
-def double_click(selector: str) -> str:
+def double_click(
+    selector: str,
+    timeout: float = 7,
+) -> str:
     """Double-click an element.
     Raises an exception if the element isn't found within the default timeout.
     """
-    _get_sb().double_click(selector)
+    _get_sb().double_click(selector, timeout=timeout)
     return f"Double-clicked {selector}"
 
 
@@ -414,7 +420,7 @@ def type_text(
     selector: str,
     text: str,
     clear_first: bool = True,
-    timeout: int | float | None = 7,
+    timeout: float = 7,
 ) -> str:
     """Type text into an input field / textarea.
     Raises an exception if the element isn't found within the timeout.
@@ -427,37 +433,47 @@ def type_text(
     """
     if clear_first:
         _get_sb().type(selector, text, timeout=timeout)
-        return f"Typed {text} into {selector} after clearing the field."
+        return f"Typed into {selector} after clearing the field."
     else:
         _get_sb().send_keys(selector, text, timeout=timeout)
-        return f"Typed {text} into {selector}"
+        return f"Typed into {selector}"
 
 
 @mcp.tool()
 @handle_sb_errors
-def set_value(selector: str, text: str) -> str:
+def set_value(
+    selector: str,
+    text: str,
+    timeout: float = 7,
+) -> str:
     """Set an input's value directly (e.g. for sliders, fast form fills).
-    Raises an exception if the element isn't found within the default timeout.
+    Raises an exception if the element isn't found within the timeout.
     """
-    _get_sb().set_value(selector, text)
+    _get_sb().set_value(selector, text, timeout=timeout)
     return f"Set value of {selector}"
 
 
 @mcp.tool()
 @handle_sb_errors
-def clear_input(selector: str) -> str:
+def clear_input(
+    selector: str,
+    timeout: float = 7,
+) -> str:
     """Clear an input field.
-    Raises an exception if the element isn't found within the default timeout.
+    Raises an exception if the element isn't found within the timeout.
     """
-    _get_sb().clear(selector)
+    _get_sb().clear(selector, timeout=timeout)
     return f"Cleared {selector}"
 
 
 @mcp.tool()
 @handle_sb_errors
-def submit(selector: str) -> str:
+def submit(
+    selector: str,
+    timeout: float = 7,
+) -> str:
     """Submit a form via a selector inside it.
-    Raises an exception if the element isn't found within the default timeout.
+    Raises an exception if the element isn't found within the timeout.
     """
     _get_sb().submit(selector)
     return f"Submitted form via {selector}"
@@ -465,37 +481,59 @@ def submit(selector: str) -> str:
 
 @mcp.tool()
 @handle_sb_errors
-def select_option_by_text(dropdown_selector: str, option: str) -> str:
+def select_option_by_text(
+    dropdown_selector: str,
+    option: str,
+    timeout: float = 7,
+) -> str:
     """Select a <select> dropdown option by its visible text.
     Raises an exception if the element or option aren't found
-      within the default timeout, which is 7 seconds."""
-    _get_sb().select_option_by_text(dropdown_selector, option)
+      within the timeout."""
+    _get_sb().select_option_by_text(
+        dropdown_selector, option, timeout=timeout
+    )
     return f"Selected text '{option}' in {dropdown_selector}"
 
 
 @mcp.tool()
 @handle_sb_errors
-def select_option_by_value(dropdown_selector: str, option: str) -> str:
+def select_option_by_value(
+    dropdown_selector: str,
+    option: str,
+    timeout: float = 7,
+) -> str:
     """Select a <select> dropdown option by its value attribute.
     Raises an exception if the element or option aren't found
-      within the default timeout, which is 7 seconds."""
-    _get_sb().select_option_by_value(dropdown_selector, option)
+      within the timeout."""
+    _get_sb().select_option_by_value(
+        dropdown_selector, option, timeout=timeout
+    )
     return f"Selected value '{option}' in {dropdown_selector}"
 
 
 @mcp.tool()
 @handle_sb_errors
-def select_option_by_index(dropdown_selector: str, option: int) -> str:
+def select_option_by_index(
+    dropdown_selector: str,
+    option: int,
+    timeout: float = 7,
+) -> str:
     """Select a <select> dropdown option by its 0-based index.
     Raises an exception if the element or option aren't found
-      within the default timeout, which is 7 seconds."""
-    _get_sb().select_option_by_index(dropdown_selector, option)
+      within the timeout."""
+    _get_sb().select_option_by_index(
+        dropdown_selector, option, timeout=timeout
+    )
     return f"Selected index {option} in {dropdown_selector}"
 
 
 @mcp.tool()
 @handle_sb_errors
-def hover_and_click(hover_selector: str, click_selector: str) -> str:
+def hover_and_click(
+    hover_selector: str,
+    click_selector: str,
+    timeout: float = 7,
+) -> str:
     """Hover over one element (e.g. to open a dropdown), then click another."""
     _get_sb().hover_and_click(hover_selector, click_selector)
     return f"Hovered {hover_selector} then clicked {click_selector}"
@@ -503,7 +541,11 @@ def hover_and_click(hover_selector: str, click_selector: str) -> str:
 
 @mcp.tool()
 @handle_sb_errors
-def drag_and_drop(drag_selector: str, drop_selector: str) -> str:
+def drag_and_drop(
+    drag_selector: str,
+    drop_selector: str,
+    timeout: float = 7,
+) -> str:
     """Drag one element onto another."""
     _get_sb().drag_and_drop(drag_selector, drop_selector)
     return f"Dragged {drag_selector} onto {drop_selector}"
@@ -512,16 +554,21 @@ def drag_and_drop(drag_selector: str, drop_selector: str) -> str:
 @mcp.tool()
 @handle_sb_errors
 def nested_click(parent_selector: str, selector: str) -> str:
-    """Click an element nested inside another (e.g. inside an iframe)."""
+    """Click an element nested inside another (e.g. inside an iframe).
+    This method only works when CDP Mode has been activated."""
     _get_sb().nested_click(parent_selector, selector)
     return f"Clicked {selector} inside {parent_selector}"
 
 
 @mcp.tool()
 @handle_sb_errors
-def choose_file(selector: str, file_path: str) -> str:
+def choose_file(
+    selector: str,
+    file_path: str,
+    timeout: float = 7,
+) -> str:
     """Set a <input type="file"> element to upload a local file."""
-    _get_sb().choose_file(selector, file_path)
+    _get_sb().choose_file(selector, file_path, timeout=timeout)
     return f"Set file input {selector} to {file_path}"
 
 
@@ -531,7 +578,7 @@ def choose_file(selector: str, file_path: str) -> str:
 
 @mcp.tool()
 @handle_sb_errors
-def wait_for_element(selector: str, timeout: int | None = None) -> str:
+def wait_for_element(selector: str, timeout: float = 7) -> str:
     """Wait until an element is visible on the page."""
     _get_sb().wait_for_element(selector, timeout=timeout)
     return f"Element {selector} is visible."
@@ -539,7 +586,7 @@ def wait_for_element(selector: str, timeout: int | None = None) -> str:
 
 @mcp.tool()
 @handle_sb_errors
-def wait_for_element_present(selector: str, timeout: int | None = None) -> str:
+def wait_for_element_present(selector: str, timeout: float = 7) -> str:
     """Wait until an element is present in the DOM (may not be visible)."""
     _get_sb().wait_for_element_present(selector, timeout=timeout)
     return f"Element {selector} is present."
@@ -547,9 +594,7 @@ def wait_for_element_present(selector: str, timeout: int | None = None) -> str:
 
 @mcp.tool()
 @handle_sb_errors
-def wait_for_element_not_visible(
-    selector: str, timeout: int | None = None
-) -> str:
+def wait_for_element_not_visible(selector: str, timeout: float = 7) -> str:
     """Wait until an element is no longer visible."""
     _get_sb().wait_for_element_not_visible(selector, timeout=timeout)
     return f"Element {selector} is no longer visible."
@@ -557,7 +602,7 @@ def wait_for_element_not_visible(
 
 @mcp.tool()
 @handle_sb_errors
-def wait_for_element_absent(selector: str, timeout: int | None = None) -> str:
+def wait_for_element_absent(selector: str, timeout: float = 7) -> str:
     """Wait until an element is removed from the DOM."""
     _get_sb().wait_for_element_absent(selector, timeout=timeout)
     return f"Element {selector} is now absent."
@@ -566,7 +611,7 @@ def wait_for_element_absent(selector: str, timeout: int | None = None) -> str:
 @mcp.tool()
 @handle_sb_errors
 def wait_for_text(
-    text: str, selector: str = "html", timeout: int | None = None
+    text: str, selector: str = "html", timeout: float = 7
 ) -> str:
     """Wait until specific text appears within an element."""
     _get_sb().wait_for_text(text, selector, timeout=timeout)
@@ -579,7 +624,7 @@ def wait_for_text(
 
 @mcp.tool()
 @handle_sb_errors
-def assert_element(selector: str, timeout: int | None = None) -> str:
+def assert_element(selector: str, timeout: float = 7) -> str:
     """Assert an element is visible."""
     _get_sb().assert_element(selector, timeout=timeout)
     return f"Confirmed {selector} is visible."
@@ -587,7 +632,7 @@ def assert_element(selector: str, timeout: int | None = None) -> str:
 
 @mcp.tool()
 @handle_sb_errors
-def assert_element_present(selector: str, timeout: int | None = None) -> str:
+def assert_element_present(selector: str, timeout: float = 7) -> str:
     """Assert an element is present in the DOM (may not be visible)."""
     _get_sb().assert_element_present(selector, timeout=timeout)
     return f"Confirmed {selector} is present."
@@ -595,9 +640,7 @@ def assert_element_present(selector: str, timeout: int | None = None) -> str:
 
 @mcp.tool()
 @handle_sb_errors
-def assert_element_not_visible(
-    selector: str, timeout: int | None = None
-) -> str:
+def assert_element_not_visible(selector: str, timeout: float = 7) -> str:
     """Assert an element is not visible."""
     _get_sb().assert_element_not_visible(selector, timeout=timeout)
     return f"Confirmed {selector} is not visible."
@@ -605,9 +648,7 @@ def assert_element_not_visible(
 
 @mcp.tool()
 @handle_sb_errors
-def assert_text(
-    text: str, selector: str = "html", timeout: int | None = None
-) -> str:
+def assert_text(text: str, selector: str = "html", timeout: float = 7) -> str:
     """Assert text is present within an element."""
     _get_sb().assert_text(text, selector, timeout=timeout)
     return f"Confirmed '{text}' is present in {selector}."
@@ -616,7 +657,7 @@ def assert_text(
 @mcp.tool()
 @handle_sb_errors
 def assert_exact_text(
-    text: str, selector: str = "html", timeout: int | None = None
+    text: str, selector: str = "html", timeout: float = 7
 ) -> str:
     """Assert an element's text matches exactly."""
     _get_sb().assert_exact_text(text, selector, timeout=timeout)
@@ -941,10 +982,10 @@ def execute_script(script: str) -> Any:
 
 @mcp.tool()
 @handle_sb_errors
-def highlight(selector: str, loops: int = 4) -> str:
+def highlight(selector: str, loops: int = 4, timeout: float = 7) -> str:
     """Briefly highlight an element with a colored animation — useful for
     narrating actions on a visible/headed browser."""
-    _get_sb().highlight(selector, loops=loops)
+    _get_sb().highlight(selector, loops=loops, timeout=timeout)
     return f"Highlighted {selector}"
 
 
