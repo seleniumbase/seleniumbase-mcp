@@ -13,11 +13,18 @@ github.com/seleniumbase/SeleniumBase/blob/master/help_docs/cdp_mode_methods.md
 Model: One persistent `sb_cdp.Chrome` session per server process.
 Call start_browser once; drive it with the other tools; then close_browser.
 
+Selectors:
+- CSS selectors are preferred. (All tools that take selectors support CSS.)
+- XPath is accepted in several (but not all) cases. Some methods utilize
+  the Chrome DevTools protocol, where Xpath might not be accepted unless
+  SeleniumBase converts those XPath selectors into valid CSS selectors first.
+- Special SeleniumBase selector syntax may be accepted by individual tools,
+    such as the visible text selector, e.g. `a:contains("Sign in")`.
+- Tool-specific documentation takes precedence when selector behavior differs.
+
 Design notes:
-Tools follow a consistent CSS-selector-or-text matching convention:
-selector arguments accept a CSS selector or visible text (for example,
-a:contains("Sign in")). Related SeleniumBase capabilities are consolidated
-into parameterized tools using action, mode, state, or check parameters.
+Related SeleniumBase capabilities are consolidated into parameterized tools
+using action, mode, state, or check parameters.
 This keeps the toolset compact and predictable while giving an MCP client
 access to the underlying browser-automation capabilities without
 having to choose between multiple near-identical tools.
@@ -31,7 +38,7 @@ Tool-selection philosophy:
 - Use wait_for when the agent needs to wait for a condition to become true.
 - Use assert_condition when the agent needs to verify an expected condition
   and treat failure as an assertion error.
-- Use click/type_text/select_option/hover_with_action/focus_on for
+- Use click/type_text/select_option/hover_action/focus for
   interactions and element positioning.
 """
 from __future__ import annotations
@@ -40,6 +47,7 @@ import sys
 from functools import wraps
 from typing import Any, Literal
 from mcp.server import MCPServer
+from mcp.server.mcpserver.exceptions import ToolError
 from seleniumbase import sb_cdp
 
 mcp = MCPServer("seleniumbase-cdp")
@@ -50,7 +58,7 @@ _sb: sb_cdp.CDPMethods | None = None
 def _get_sb() -> sb_cdp.CDPMethods:
     """Return the active browser session or raise a useful lifecycle error."""
     if _sb is None:
-        raise RuntimeError("No browser session. Call start_browser first.")
+        raise ToolError("No browser session. Call start_browser first.")
     return _sb
 
 
@@ -66,6 +74,8 @@ def handle_sb_errors(func):
     def wrapper(*args, **kwargs):
         try:
             return func(*args, **kwargs)
+        except ToolError:
+            raise
         except Exception as e:
             error_type = e.__class__.__name__
             error_msg = str(e).strip()
@@ -159,10 +169,7 @@ def start_browser(
     global _sb
 
     if _sb is not None:
-        return (
-            "A browser session is already running. "
-            "Call close_browser first."
-        )
+        return ("A browser session is already running.")
 
     if incognito and guest:
         return "Error: incognito and guest cannot both be enabled."
@@ -247,15 +254,19 @@ def close_browser() -> str:
     global _sb
 
     if _sb is None:
-        return "No browser session was running."
+        return "No browser session is currently running."
 
     try:
         _sb.quit()
-    except Exception:
-        pass
+    except Exception as e:
+        return (
+            "Error calling `quit()` on the browser session: "
+            f"{e.__class__.__name__} - {str(e).strip()}"
+        )
+    finally:
+        _sb = None
 
-    _sb = None
-    return "Browser closed."
+    return "The browser session was closed."
 
 
 # ---------------------------------------------------------------------------
@@ -264,7 +275,7 @@ def close_browser() -> str:
 
 @mcp.tool()
 @handle_sb_errors
-def get_page_info() -> dict | str:
+def get_page_info() -> dict:
     """Get current browser session and page metadata.
 
     Use this as the primary tool for determining where the browser currently
@@ -277,7 +288,10 @@ def get_page_info() -> dict | str:
 
     Returns:
         A dictionary containing:
-        - running: True when a browser session is active.
+        - running: True when a browser session is active and metadata exists.
+            False if not running or there was a problem getting all metadata,
+            where possibly the browser crashed and therefore internally the
+            tool didn't realize that the browser was no longer running.
         - url: The complete current page URL, including path and query string.
         - title: The current document title.
         - origin: The current page origin (scheme, host, and port).
@@ -341,7 +355,7 @@ def navigate(url: str) -> str:
             "https://example.com" or a hostname such as "example.com".
 
     Returns:
-        A confirmation containing the requested URL.
+        A confirmation message containing the requested URL.
 
     Tool selection:
         - Go to a new URL -> use navigate.
@@ -373,8 +387,8 @@ def manage_history(
               Has no useful effect when there is no forward history entry.
             - "reload": Reload the current page while ignoring the browser
               cache so page resources are fetched again.
-            - "list": Return a tuple containing the current location in
-              history (0-indexed) and the full navigation-history list.
+            - "list": Return a dictionary containing the current location
+              in history (0-indexed) and the full navigation-history list.
 
     Returns:
         A confirmation message describing the operation performed for
@@ -449,20 +463,20 @@ def find_elements(
     dictionaries. It does not return live SeleniumBase element objects.
 
     Args:
-        selector: CSS selector, or a SeleniumBase selector that can match
-            visible text. Examples include "button", ".login-link", or
-            'a:contains("Sign in")'.
+        selector: CSS Selector or XPath selector.
+
         timeout: Maximum number of seconds to wait for matching elements
-            to be found. (Defaults to 0.5 seconds.)
+            to be found.
+
         include_html: If True, include each matching element's outer HTML.
-            If False, return only tag name and text. (Defaults to False.)
+            If False, return only tag name and text.
 
     Returns:
         A dictionary containing:
         - count: Number of matching elements found.
         - matches: A list of element dictionaries containing tag_name and
           text, plus html when include_html=True.
-        If there are no matching elements, returns an empty dictionary.
+        If there's an error, returns a string with error details.
 
     Tool selection:
         - Need structured information about matching elements ->
@@ -479,10 +493,7 @@ def find_elements(
         appropriate interaction tool.
     """
     sb = _get_sb()
-    try:
-        elements = sb.find_all(selector, timeout=timeout)
-    except Exception:
-        return {}
+    elements = sb.find_elements(selector, timeout=timeout)
 
     if include_html:
         return {
@@ -591,6 +602,7 @@ def get_attributes(
     Args:
         selector: CSS selector or SeleniumBase text-matching selector for
             the target element.
+
         attribute: Specific HTML attribute to retrieve. When omitted, return
             all HTML attributes of the element as a dictionary.
 
@@ -606,7 +618,7 @@ def get_attributes(
         - Need visible text or HTML content -> use 'get_content'.
         - Need to check element presence/visibility -> use 'check_condition'.
 
-    This is a read-only operation and does not modify the element.
+    This is a read-only operation.
     """
     sb = _get_sb()
 
@@ -622,7 +634,7 @@ def check_condition(
     check: Literal["present", "visible"] = "visible",
     selector: str = "body",
     text: str | None = None,
-) -> Any:
+) -> bool | str:
     """Check the current state of an element or text without waiting
     for the condition to become true.
 
@@ -636,13 +648,10 @@ def check_condition(
             The element state to inspect when text is not provided:
             - "present": Return True when at least one matching element exists.
             - "visible": Return True when the matching element is visible.
-            Defaults to "visible".
             `check` is ignored when `text` is provided.
 
         selector:
-            CSS selector or SeleniumBase selector identifying the element to
-            inspect. Defaults to "body". When `text` is provided, this also
-            identifies the element whose visible text is checked.
+            CSS selector or SeleniumBase selector identifying the element.
 
         text:
             Optional text to check for visibility within `selector`. When
@@ -654,16 +663,14 @@ def check_condition(
     Returns:
         True or False indicating whether the requested condition is currently
         satisfied. Missing elements return False rather than raising an
-        exception.
+        exception. If there's an error, returns a string with error details.
 
     Tool selection:
         - Immediate boolean observation -> use check_condition.
-        - Wait for an element or text condition to become true/false ->
-          use wait_for.
-        - Verify an expected condition and fail when it is not met ->
-          use assert_condition.
-        - Need the number or details of matching elements -> use find_elements.
-        - Need to read the actual page or element content -> use get_content.
+        - Wait for a state/content transition -> use wait_for.
+        - Verify an expected condition -> use assert_condition.
+        - Need element details of matching elements -> use find_elements.
+        - Need to read page or element content -> use get_content.
 
     Notes:
         This tool does not intentionally wait for elements or text to appear.
@@ -683,7 +690,9 @@ def check_condition(
     if check == "visible":
         return sb.is_element_visible(selector)
 
-    return f"Error: unknown check '{check}'. Use 'present' or 'visible'."
+    return (
+        f"Error: Unknown check {check!r}. Use 'present' or 'visible'."
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -703,32 +712,36 @@ def click(
 ) -> str:
     """Click one or more elements matching a selector.
 
-    This is the primary element-clicking tool. The selector may be a CSS
-    selector or SeleniumBase text-matching selector such as
-    'a:contains("Sign in")'.
+    The selector may be a CSS selector or an XPath selector.
+    (A SeleniumBase text-matching selector such as 'a:contains("Sign in")'
+    can only be used only when NOT setting `all_matches`.)
 
     Args:
         selector: Target CSS selector or text-matching selector.
+
         nth: Click only the Nth matching element, using 1-based indexing.
             Takes priority over all_matches.
-        all_matches: Click every currently visible matching element, in order.
-            Ignored when nth is provided.
-        only_if_visible: Attempt the click only when the target is already
-            visible. Does not wait for the element to become visible.
+
+        all_matches: Click every currently visible matching element, in the
+            order that they appear on the page. Ignored when nth is provided.
+
+        only_if_visible: Click only when the target is already visible.
+            Does not wait for the element to become visible.
+
         parent_selector: Restrict the nested lookup to a parent element.
             Useful for elements inside iframes or nested containers when
             supported by SeleniumBase.
-        timeout: Seconds to wait for a basic click when no specialized mode
-            is selected. Defaults to 7 seconds.
+
+        timeout: Seconds to wait for a basic click.
+
         scroll: Scroll the target into view before clicking.
 
     Tool selection:
         - Click one matching element -> basic click.
-        - Click a specific matching occurrence -> set nth.
+        - Click a specific matching occurrence -> set `nth`.
         - Click every visible match -> set all_matches=True.
         - Click only when already visible -> set only_if_visible=True.
-        - Click an element nested inside another element -> set
-          parent_selector.
+        - Click an element nested in another element -> set `parent_selector`.
     """
     sb = _get_sb()
 
@@ -756,7 +769,7 @@ def click(
 
 @mcp.tool()
 @handle_sb_errors
-def hover_with_action(
+def hover_action(
     selector1: str,
     selector2: str | None = None,
     action: Literal[
@@ -765,7 +778,7 @@ def hover_with_action(
         "drag_and_drop",
     ] = "none",
 ) -> str:
-    """Hover over an element, optionally click another element, or drag-&-drop.
+    """Hover over an element, optionally click another, or drag-and-drop.
 
     Use this tool for hover interactions, hover-triggered menus, and
     drag-and-drop operations.
@@ -773,23 +786,17 @@ def hover_with_action(
     Args:
         selector1:
             The primary element selector.
-
             For action="none", this is the element to hover over.
-
             For action="click", this is the element to hover over before
             clicking selector2.
-
             For action="drag_and_drop", this is the draggable source element.
 
         selector2:
             The secondary element selector.
-
             Required for action="click", where it identifies the element
             revealed or targeted after hovering selector1.
-
             Required for action="drag_and_drop", where it identifies the
             destination/drop target.
-
             Not used for action="none".
 
         action:
@@ -798,7 +805,7 @@ def hover_with_action(
             - "drag_and_drop": Drag selector1 and drop it onto selector2.
 
     Returns:
-        A confirmation describing the performed operation.
+        A confirmation message describing the performed operation.
 
     Tool selection:
         - Simple hover -> action="none".
@@ -857,7 +864,9 @@ def type_text(
     Args:
         selector: CSS selector or SeleniumBase selector identifying the
             input, textarea, or contenteditable element.
+
         text: Text to enter or set. Not used when mode="clear_only".
+
         mode:
             - "fill_input": Clear the field and then type text normally.
             - "append": Keep the existing value and add text as keystrokes.
@@ -867,6 +876,7 @@ def type_text(
               key events. It can also be used to handle input sliders,
               e.g. 'input[type="range"]'.
             - "clear_only": Empty the text field; text is ignored.
+
         timeout: Maximum seconds to wait for the target element.
 
     Tool selection:
@@ -909,8 +919,10 @@ def select_option(
 
     Args:
         dropdown_selector: CSS selector identifying the <select> element.
+
         value: The option's visible text, its HTML value attribute, or its
             0-based index, depending on by.
+
         by:
             - "text": Match the option's visible text.
             - "value": Match the option's HTML value attribute.
@@ -940,7 +952,7 @@ def select_option(
 
 @mcp.tool()
 @handle_sb_errors
-def focus_on(
+def focus(
     selector: str,
     action: Literal[
         "scroll_to_element",
@@ -967,12 +979,12 @@ def focus_on(
               demonstration. This can affect timing and may reduce stealth.
 
     Tool selection:
-        - Bring an element into view -> use focus_on with the default action.
-        - Focus an element -> use focus_on(action="focus").
-        - Highlight element for debugging -> use focus_on(action="highlight").
+        - Bring an element into view -> use focus with the default action.
+        - Focus an element -> use focus(action="focus").
+        - Highlight element for debugging -> use focus(action="highlight").
         - Click -> use click.
         - Type text into a text field -> use type_text.
-        - Hover -> use hover_with_action.
+        - Hover -> use hover_action.
     """
     sb = _get_sb()
 
@@ -1028,17 +1040,19 @@ def wait_for(
             - "not_visible": Wait until the matching element is not visible.
             - "absent": Wait until the matching element no longer exists.
             (This is handled differently when text is provided.)
+
         selector: CSS selector or SeleniumBase selector for the element.
             Required unless text is supplied.
+
         text: If supplied and is not None, a `state` of 'present' or 'visible'
             both wait for the text to appear within the selector, and a `state`
             of 'not_visible' or 'absent' both wait for the text to be absent
             from the selector (or within "body" when selector is omitted).
+
         timeout: Maximum seconds to wait for the requested state to be true.
-            (Defaults to 7 seconds.)
 
     Returns:
-        A confirmation when the requested condition is reached.
+        A confirmation message when the requested condition is reached.
 
     Tool selection:
         - Check current state immediately -> use check_condition.
@@ -1109,17 +1123,21 @@ def assert_condition(
             - "title": Verify the exact page title.
             - "url": Verify the exact current URL.
             - "url_contains": Verify that the current URL contains expected.
+
         selector: Element selector for element_present, element_visible, and
             text_visible checks.
+
         expected: Expected text/title/URL value for text_visible, title, url,
             and url_contains.
+
         exact: For check="text_visible", require exact text
             rather than a substring.
+
         timeout: Maximum seconds to wait for element/text checks.
             (Ignored for title and URL checks.)
 
     Returns:
-        A confirmation when the expectation passes.
+        A confirmation message when the expectation passes.
 
     Raises:
         An assertion-related SeleniumBase exception when the expectation
@@ -1202,8 +1220,9 @@ def manage_cookies(
               created or overwritten.
             - "load": Load cookies from filename into the current browser
               session.
-        filename: Filesystem path used by save/load. Defaults to
-            "cookies.txt". Ignored for get_all and clear.
+
+        filename: Filesystem path used by save/load.
+            Ignored for get_all and clear.
 
     Returns:
         "get_all": Current browser cookies.
@@ -1280,8 +1299,11 @@ def manage_storage(
 
     Args:
         key: Storage key to read or modify.
+
         value: Value to store when action="set". Required for set.
+
         storage: "local" for localStorage or "session" for sessionStorage.
+
         action: "get" to read the key or "set" to write the key.
 
     Returns:
@@ -1337,11 +1359,12 @@ def scroll(
             - "down": Scroll downward by amount percent of the window height.
             - "top": Scroll directly to the top; amount is ignored.
             - "bottom": Scroll directly to the bottom; amount is ignored.
+
         amount: Percentage of the current viewport height used for relative
             up/down scrolling. For example, amount=25 scrolls approximately
             one quarter of the viewport height.
 
-    Use focus_on(action="scroll_to_element") when the goal is to reveal a
+    Use focus(action="scroll_to_element") when the goal is to reveal a
     specific element rather than scroll the page by a relative amount.
     """
     sb = _get_sb()
@@ -1391,9 +1414,13 @@ def manage_window(
             - "set_rect": Set x, y, width, and height. All four are required.
             - "maximize": Maximize the browser window.
             - "minimize": Minimize the browser window.
+
         x: Horizontal screen position for set_rect.
+
         y: Vertical screen position for set_rect.
+
         width: Window width for set_rect.
+
         height: Window height for set_rect.
 
     Use this tool for browser-window geometry/state. For switching between
@@ -1451,10 +1478,12 @@ def manage_tabs(
             - "switch": Switch to the tab identified by tab_index from list.
             - "switch_newest": Switch to the newest tab.
             - "close_active": Close the currently active tab.
+
         url: URL for action="open".
+
         tab_index: Index returned by action="list" for action="switch".
-        switch_to: For action="open", switch to the newly created tab when
-            True.
+
+        switch_to: For action="open", switch to the new tab when True.
 
     Notes:
         Clicking a link or performing another browser action may open a new
@@ -1565,12 +1594,14 @@ def save_output(
             - "screenshot": Save a PNG screenshot.
             - "html": Save the current page source as HTML.
             - "pdf": Save the current page as a PDF.
+
         filename: Output filename. Defaults to screenshot.png,
             page_source.html, or page.pdf depending on format.
+
         folder: Optional destination folder.
 
     Returns:
-        A confirmation containing the output format and filename.
+        A confirmation message containing the output format and filename.
 
     Security:
         filename and folder can affect filesystem paths available to the MCP
@@ -1611,8 +1642,8 @@ def run_javascript(expression: str) -> Any:
     and other same-origin page resources available to JavaScript.
 
     Tool selection:
-        - Prefer click, type_text, select_option, hover_with_action,
-          focus_on, scroll, and other higher-level tools for normal browser
+        - Prefer click, type_text, select_option, hover_action,
+          focus, scroll, and other higher-level tools for normal browser
           interactions.
         - Prefer get_content, get_attributes, and find_elements for reading
           page content or element information.
@@ -1669,6 +1700,8 @@ def wait_seconds(seconds: float) -> str:
     Args:
         seconds: Number of seconds to block. May be an integer or float.
     """
+    if seconds < 0:
+        return "Error: seconds must be >= 0."
     _get_sb().sleep(seconds)
     return f"Waited {seconds}s"
 
