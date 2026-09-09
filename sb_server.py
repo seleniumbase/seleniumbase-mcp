@@ -28,6 +28,7 @@ import sys
 from functools import wraps
 from typing import Any, Literal
 from mcp.server import MCPServer
+from mcp.server.mcpserver.exceptions import ToolError
 from seleniumbase import SB
 
 mcp = MCPServer("seleniumbase-sb")
@@ -38,7 +39,7 @@ _sb: Any = None
 
 def _get_sb() -> Any:
     if _sb is None:
-        raise RuntimeError("No browser session. Call start_browser first.")
+        raise ToolError("No browser session. Call start_browser first.")
     return _sb
 
 
@@ -49,6 +50,8 @@ def handle_sb_errors(func):
     def wrapper(*args, **kwargs):
         try:
             return func(*args, **kwargs)
+        except ToolError:
+            raise
         except Exception as e:
             error_type = e.__class__.__name__
             error_msg = str(e).strip()
