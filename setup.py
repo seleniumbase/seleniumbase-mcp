@@ -70,7 +70,7 @@ if sys.argv[-1] == "publish":
 
 setup(
     name="seleniumbase-mcp",
-    version="1.2.6",
+    version="1.3.0",
     description="MCP servers exposing SeleniumBase as tools for MCP clients.",
     long_description=long_description,
     long_description_content_type="text/markdown",
@@ -140,7 +140,7 @@ setup(
     ],
     python_requires=">=3.10",
     install_requires=[
-        "seleniumbase[mcp]>=4.53.8",
+        "seleniumbase[mcp]>=4.54.0",
         "mcp[cli]>=2.2.0,<3.0.0",
     ],
     extras_require={
@@ -149,10 +149,10 @@ setup(
             "twine>=7.0.0",
         ],
         "uv": [
-            "uv>=0.12.9",
+            "uv>=0.12.12",
         ],
         "dev": [
-            "uv>=0.12.9",
+            "uv>=0.12.12",
         ],
     },
     entry_points={
