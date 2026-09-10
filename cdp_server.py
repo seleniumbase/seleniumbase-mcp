@@ -99,7 +99,7 @@ def handle_sb_errors(func):
 @mcp.tool()
 def start_browser(
     url: str | None = None,
-    headless: bool | None = None,
+    headless: Literal[False, True, None] = None,
     use_chromium: bool = False,
     browser_executable_path: str | None = None,
     incognito: bool = False,
@@ -109,75 +109,67 @@ def start_browser(
 ) -> str:
     """Launch a persistent SeleniumBase Pure CDP Mode browser session.
 
-    This must be called before browser interaction tools such as navigate,
+    Call this before using browser interaction tools such as navigate,
     get_content, click, type_text, or find_elements. The same browser
     session remains active across subsequent MCP tool calls until
     close_browser is called or the server process exits.
 
-    Pure CDP Mode communicates directly with the browser through the Chrome
-    DevTools Protocol rather than WebDriver. This provides SeleniumBase's
-    CDP-based browser automation capabilities without using WebDriver as the
-    browser-control layer.
+    Pure CDP Mode controls the browser through the Chrome DevTools Protocol
+    (CDP), not WebDriver.
 
     Args:
-        url: Optional URL to open immediately after the browser launches.
-            If omitted, the browser starts without navigating to a requested
-            page.
+        url: Optional URL to navigate to during browser startup.
+            When provided, the tool waits for the browser launch/navigation
+            operation to complete before returning. If omitted, the browser
+            starts without navigating to a specified URL.
 
         headless: Controls whether the browser runs without a visible window.
-            If True, always run headless. If False, always run headed.
-            If omitted (None), the default depends on the operating system:
-            Linux defaults to headless because MCP/server environments
-            commonly do not have a graphical desktop, while Windows and macOS
-            default to headed so that a visible browser window is available.
-            Use True or False to explicitly override the OS-specific default
-            on any operating system.
+            True forces headless mode; False forces headed mode. If None, this
+            tool defaults to headless on Linux and headed on Windows/macOS.
 
         use_chromium: Use Chromium instead of Google Chrome. This is useful
             when Google Chrome is not installed. SeleniumBase can manage the
             Chromium browser when this option is enabled.
 
-        browser_executable_path: Explicit filesystem path to the browser
-            executable when it is not installed in a standard location.
-            Do not combine this with use_chromium=True.
+        browser_executable_path: Optional path to the browser executable.
+            Use this when the desired browser is installed at a non-standard
+            location. Mutually exclusive with use_chromium.
 
         incognito: Launch Chrome/Chromium in incognito mode.
 
-        guest: Launch Chrome/Chromium in guest mode. Do not combine this with
-            incognito=True.
+        guest: Launch Chrome/Chromium in guest mode.
+            Do not combine this with incognito=True.
 
         ad_block: Enable SeleniumBase's basic ad-blocking functionality.
 
-        proxy: Optional proxy server. Examples include
-            "SERVER:PORT" or "USER:PASS@SERVER:PORT".
+        proxy: Optional proxy server.
+            Examples include "SERVER:PORT" or "USER:PASS@SERVER:PORT".
 
     Returns:
-        A confirmation message when the browser starts successfully, including
-        the effective headless setting, or a descriptive error when browser
-        startup fails.
+        A confirmation message when the browser starts successfully,
+        or a descriptive error if the browser startup fails.
+
+    Startup behavior:
+        If the initial launch fails, the tool automatically retries once.
 
     Lifecycle:
         Call start_browser once at the beginning of a browser automation
         workflow. Reusing the existing session preserves cookies, tabs,
         navigation history, localStorage/sessionStorage, and other browser
         state between tool calls. Call close_browser when finished.
+        If a browser session is already running, this tool does not launch
+        another browser and instead returns a message indicating that the
+        existing session is active.
 
     Environment requirements:
         The MCP runtime must have a compatible Chrome or Chromium browser
         available. If the browser executable cannot be discovered, use
         use_chromium=True or provide browser_executable_path explicitly.
-
-        On Linux, the default is headless=True so the browser can run in
-        typical server/container environments without a graphical desktop.
-        Set headless=False when a graphical display is available and a visible
-        browser is desired. On Windows and macOS, the default is
-        headless=False. Set headless=True when running without a desktop or
-        when a visible browser window is not desired.
     """
     global _sb
 
     if _sb is not None:
-        return ("A browser session is already running.")
+        return "A browser session is already running."
 
     if incognito and guest:
         return "Error: incognito and guest cannot both be enabled."
@@ -864,26 +856,39 @@ def type_text(
     ] = "fill_input",
     timeout: float = 5,
 ) -> str:
-    """Enter, append, directly set, or clear text or values on page elements.
+    """Enter, append, directly set, or clear a value on a page element.
 
-    Use this for text entry and direct value changes on supported page
-    elements, including inputs, textareas, contenteditable elements,
-    and input sliders.
+    Use this tool to modify text/value fields such as inputs, textareas,
+    contenteditable elements, and supported input sliders. It changes the
+    target element's value or content; it does not submit a form or click
+    other elements.
+
+    Choose the mode based on the desired interaction:
+    - "fill_input": Normal user-like entry; clears the existing value first.
+    - "append": Preserves the existing value and adds text via keystrokes.
+    - "fast_type": Clears the existing value and types without typing pauses.
+    - "set_value": Sets the value directly without simulating key events;
+      prefer this for fast programmatic value changes when keyboard events
+      are not required.
+    - "clear_only": Clears the existing value; `text` is ignored.
+
+    The tool waits up to `timeout` seconds for the target element. If the
+    target cannot be used successfully, the underlying SeleniumBase error is
+    handled by `handle_sb_errors` rather than returning a success message.
 
     Args:
-        selector: CSS selector or SeleniumBase selector identifying the target.
+        selector: CSS or SeleniumBase selector identifying the target element.
 
-        text: Text to enter or set. Ignored when mode="clear_only".
+        text: Text/value to enter or set. Ignored for "clear_only".
 
-        mode:
-            - "fill_input": Clear the field and type text normally.
-            - "append": Keep the existing value and add text as keystrokes.
-            - "fast_type": Clear the field and type text without pauses.
-            - "set_value": Set the value directly without simulating
-              key events. Useful for fast form filling and input sliders.
-            - "clear_only": Empty the field; `text` is ignored.
+        mode: Interaction mode. See the mode descriptions above.
 
         timeout: Maximum seconds to wait for the target element.
+            Must be appropriate for the page's expected load/interaction time.
+
+    Returns:
+        A confirmation message after the operation succeeds;
+        otherwise the error handler returns the resulting failure.
     """
     sb = _get_sb()
 
@@ -1008,23 +1013,27 @@ def wait_for(
     text: str | None = None,
     timeout: float = 5,
 ) -> str:
-    """Wait until an element or text reaches a requested state, or wait for
-    a specific amount of time to pass.
+    """Wait for a page condition or for a specified duration.
 
-    If 'seconds_passed' is selected for `state`, then this tool ignores any
-    values set for 'selector' and 'text', and then waits for full `timeout`
-    seconds (blocking behavior).
+    Use this for synchronization when a dynamic page may need time to reach
+    a condition before the next automation step. The tool blocks until the
+    condition is met or the timeout expires. It does not intentionally scroll,
+    click, or otherwise modify the page while waiting.
 
-    When `text` is provided, `present` is treated the same as `visible`
-    (the tool waits until the text is visible), and `absent` is treated the
-    same as `not_visible` (the tool waits until the text is no longer visible).
+    Use check_condition to inspect the current state without waiting.
+    Use assert_condition to verify an expected condition rather than
+    synchronize with a changing page.
 
-    Use this tool when the page is dynamic and an automation step must wait
-    for a condition before continuing.
+    When the condition is not reached before `timeout`, the underlying
+    SeleniumBase wait failure is handled by the tool's error handler rather
+    than returning a success confirmation.
 
-    Unlike check_condition, this tool intentionally waits.
-    Unlike assert_condition, its purpose is synchronization
-    rather than validating a test expectation.
+    If `state="seconds_passed"`, `selector` and `text` are ignored and the
+    tool blocks for the full `timeout` seconds.
+
+    If `text` is supplied, `present`/`visible` wait for the text to appear,
+    while `absent`/`not_visible` wait for the text to disappear.
+    If no selector is supplied, text is searched within the page body.
 
     Args:
         state:
@@ -1032,25 +1041,27 @@ def wait_for(
             - "visible": Wait until the matching element is visible.
             - "not_visible": Wait until the matching element is not visible.
             - "absent": Wait until the matching element no longer exists.
-            - "seconds_passed": Wait until the `timeout` seconds have passed.
+            - "seconds_passed": Wait for the full `timeout` duration.
 
-        selector: CSS selector or SeleniumBase selector for the element.
-            Required unless `text` is supplied or `seconds_passed` is set.
+        selector: CSS or SeleniumBase selector for the element.
+            Required unless `text` is supplied or `state="seconds_passed"`.
 
-        text: If supplied and is non-empty, a `state` of 'present' or 'visible'
-            both wait for the text to appear within the selector, and a `state`
-            of 'not_visible' or 'absent' both wait for the text to be absent
-            from the selector (or within "body" when selector is omitted).
+        text: Optional text to wait for or wait to disappear.
+            With text, `present` and `visible` are equivalent,
+            as are `absent` and `not_visible`.
 
-        timeout: Maximum seconds to wait for the requested state to be true.
+        timeout: Maximum seconds to wait for the condition;
+            for `seconds_passed`, the exact duration to wait. Must be >= 0.
 
     Returns:
-        A confirmation message when the requested condition is reached.
+        A success message when the requested condition is reached.
+        If the condition times out or the underlying wait fails,
+        the tool returns the error produced by its error handler.
 
     Tool selection:
-        - Check current state immediately -> use check_condition.
-        - Wait for a condition to become true -> use wait_for.
-        - Verify an expected value/condition -> use assert_condition.
+        - Inspect current state immediately -> check_condition.
+        - Wait for a state change -> wait_for.
+        - Verify an expectation -> assert_condition.
     """
     sb = _get_sb()
 
@@ -1064,7 +1075,7 @@ def wait_for(
         return "Error: timeout must be >= 0."
 
     if state == "seconds_passed":
-        # This ignores any values that are set for 'selector' or 'text'.
+        # This ignores any values that are set for `selector` or `text`.
         sb.sleep(timeout)
         return f"Waited for {timeout}s"
 
@@ -1112,47 +1123,58 @@ def assert_condition(
     exact: bool = False,
     timeout: float = 5,
 ) -> str:
-    """Verify an expected browser condition and fail when it is not met.
+    """Verify a browser condition and report failure as an error.
 
-    Use this tool for explicit verification. Unlike check_condition,
-    which simply reports True or False on the current state,
-    assert_condition treats a failed expectation as an error.
-    The timeout applies only to element and text checks.
-    The title and URL checks are immediate.
+    Use this tool when an expected page state must be explicitly verified.
+    It is a read-only verification operation: it does not click, type,
+    navigate, scroll, or otherwise intentionally modify the page.
+
+    Element and text assertions may block while SeleniumBase waits for the
+    condition, up to `timeout` seconds. Title and URL assertions are checked
+    immediately and ignore `timeout`. A failed assertion or timeout is
+    handled by `handle_sb_errors` and returned as a descriptive tool error;
+    it is not reported as a successful result.
+
+    Unlike check_condition, this tool does not merely return whether a
+    condition is true: a failed expectation is an error.
+    Unlike wait_for, its purpose is to verify an expectation, not merely
+    synchronize with a changing page.
 
     Args:
         check:
-            - "element_present": Verify selector identifies a present element.
-            - "element_visible": Verify selector identifies a visible element.
-            - "text_visible": Verify expected text is visible within selector,
-              or within the whole HTML document when selector is omitted.
-            - "title": Verify the exact page title.
-            - "url": Verify the exact current URL.
-            - "url_contains": Verify that the current URL contains expected.
+            - "element_present": Verify that the selector identifies a
+              present element.
+            - "element_visible": Verify that the selector identifies a
+              visible element.
+            - "text_visible": Verify that expected text is visible within
+              selector, or within the whole HTML document if selector is
+              omitted.
+            - "title": Verify the exact current page title immediately.
+            - "url": Verify the exact current URL immediately.
+            - "url_contains": Verify that the current URL contains expected
+              immediately.
 
-        selector: Element selector for element_present, element_visible, and
-            text_visible checks.
+        selector: CSS or SeleniumBase selector for element and text checks.
+            Required for element checks; optional for text_visible.
 
-        expected: Expected text/title/URL value for text_visible, title, url,
-            and url_contains.
+        expected: Expected text, title, or URL value. Required for
+            text_visible, title, url, and url_contains.
 
-        exact: For check="text_visible", require exact text
-            rather than a substring.
+        exact: For text_visible only, require an exact text match instead
+            of a substring match.
 
-        timeout: Maximum seconds to wait for element/text checks.
-            (Ignored for title and URL checks.)
+        timeout: Maximum seconds to wait for element/text assertions.
+            Must be >= 0. Ignored for title and URL assertions.
 
     Returns:
-        A confirmation message when the expectation passes.
-
-    Raises:
-        An assertion-related SeleniumBase exception when the expectation
-        fails; the MCP error wrapper converts it to a descriptive result.
+        A confirmation message when the assertion passes. If the assertion
+        fails or times out, the error handler returns the resulting error
+        instead of a success message.
 
     Tool selection:
-        - Just inspect current state -> use check_condition.
-        - Wait for a condition to become true -> use wait_for.
-        - Verify that an expected condition is true -> use assert_condition.
+        - Inspect a condition without failing -> check_condition.
+        - Wait for a condition to become true -> wait_for.
+        - Verify that an expected condition is true -> assert_condition.
     """
     sb = _get_sb()
 
@@ -1600,21 +1622,58 @@ def save_output(
     filename: str | None = None,
     folder: str | None = None,
 ) -> str:
-    """Save the current browser page as a screenshot, HTML file, or PDF.
+    """Save the current browser page to a local filesystem file.
+
+    Use this tool when the browser workflow needs a persistent file artifact
+    from the current page: a PNG screenshot, the current page source as HTML,
+    or a PDF representation of the current page.
+
+    A browser session must already be running. This tool operates on the
+    currently active browser tab and does not navigate, click, type, or
+    otherwise modify the webpage.
 
     Args:
         format:
-            - "screenshot": Save a PNG screenshot.
-            - "html": Save the current page source as HTML.
+            - "screenshot": Save a PNG screenshot of the current page.
+            - "html": Save the current page source as an HTML file.
             - "pdf": Save the current page as a PDF.
 
-        filename: Output filename. Defaults to screenshot.png,
-            page_source.html, or page.pdf based on `format`.
+        filename:
+            Optional output filename. If omitted, defaults to:
+            - "screenshot.png" for format="screenshot"
+            - "page_source.html" for format="html"
+            - "page.pdf" for format="pdf"
 
-        folder: Optional destination folder.
+        folder:
+            Optional destination folder passed to SeleniumBase.
+            If omitted, SeleniumBase uses its default output location.
 
-    Existing files may be overwritten.
-    Use trusted, authorized paths for `filename` and `folder`.
+    Side effects and filesystem behavior:
+        This tool writes a file to the filesystem and may overwrite an
+        existing file with the same output name. Only use trusted and
+        authorized filesystem paths. The MCP process must have permission
+        to write to the requested destination.
+
+        The tool does not upload, publish, or transmit the saved file by
+        itself. The resulting file remains in the filesystem available to
+        the MCP server process.
+
+    Error behavior:
+        If the browser session is not running, the tool returns a lifecycle
+        error. Filesystem, browser, or SeleniumBase failures are converted
+        into descriptive MCP error results by the server's error handler.
+
+    When not to use:
+        - Do not use this tool merely to read page text or HTML; use
+          get_content instead.
+        - Do not use this tool when you only need page metadata such as the
+          URL or title; use get_page_info instead.
+        - Do not use this tool to manipulate the page; use the appropriate
+          interaction tool such as click, type_text, or select_option.
+
+    Returns:
+        A confirmation message containing the requested output format and
+        filename after the save operation succeeds.
     """
     sb = _get_sb()
 

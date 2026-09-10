@@ -52,7 +52,7 @@ def handle_sb_errors(func):
 @handle_sb_errors
 def start_browser(
     browser: Literal["chrome", "edge", "firefox", "chromium"] = "chrome",
-    headless: bool | None = None,
+    headless: Literal[False, True, None] = None,
     uc: bool = True,
     incognito: bool = False,
     guest_mode: bool = False,
@@ -63,13 +63,8 @@ def start_browser(
     Args:
         browser: "chrome", "edge", "firefox", or "chromium".
         headless: Controls whether the browser runs without a visible window.
-            If True, always run headless. If False, always run headed.
-            If omitted (None), the default depends on the operating system:
-            Linux defaults to headless because MCP/server environments
-            commonly do not have a graphical desktop, while Windows and macOS
-            default to headed so that a visible browser window is available.
-            Use True or False to explicitly override the OS-specific default
-            on any operating system.
+            True forces headless mode; False forces headed mode. If None, this
+            tool defaults to headless on Linux and headed on Windows/macOS.
         uc: Undetected-chromedriver mode, useful for sites with bot detection.
             (The `uc` option is for Chrome/Chromium, only!)
         incognito: Launch Chrome/Chromium in incognito mode.
