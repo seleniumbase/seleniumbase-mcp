@@ -202,13 +202,13 @@ in the loop at all. Reference:
 | Navigation        | `navigate`, `navigate_history(action: back/forward/reload)`, `get_page_info` (running status, url, title, origin, user agent, history in one call) |
 | Finding & reading | `find_elements(selector, timeout, include_html)`, `get_content(selector, output_format: text/html/urls, include_shadow_dom)`, `get_attributes`, `check_state(check: present/visible/count/text_visible)` |
 | Interacting       | `click(selector, nth, all_matches, only_if_visible, parent_selector, timeout, scroll)`, `hover_action(selector1, selector2, action: none/click/drag_and_drop)`, `type_text(mode: fill_input/append/fast_type/set_value/clear_only)`, `select_option(by: text/value/index)`, `focus(action: scroll_to_element/focus/highlight)` |
-| Waiting           | `wait_for(state: present/visible/not_visible/absent, text)`                                                                                        |
-| Assertions        | `assert_condition(check: element_present/element_visible/text_visible/title/url/url_contains)`                                                                  |
+| Waiting           | `wait_for(state: present/visible/not_visible/absent/seconds_passed, text)`                                                                         |
+| Assertions        | `assert_condition(check: element_present/element_visible/text_visible/title/url/url_contains)`                                                     |
 | Cookies & storage | `manage_cookies(action: get_all/clear/save/load)`, `manage_storage(storage: local/session, action: get/set)`                                       |
 | Scrolling         | `scroll(direction: up/down/top/bottom, amount)`                                                                                                    |
 | Windows & tabs    | `manage_window(action: get_rect/set_rect/maximize/minimize)`, `manage_tabs(action: list/open/switch/switch_newest/close_active)`                   |
 | Captcha           | `solve_captcha`                                                                                                                                    |
-| Output & misc     | `save_output(format: screenshot/html/pdf)`, `run_javascript`, `wait_seconds`                                                                        |
+| Output & misc     | `save_output(format: screenshot/html/pdf)`, `run_javascript`                                                                                       |
 
 ### CDP-specific design notes
 
