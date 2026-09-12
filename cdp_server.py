@@ -446,10 +446,16 @@ def find_elements(
     dictionaries. It does not return live SeleniumBase element objects.
 
     Args:
-        selector: A SeleniumBase-supported selector, typically CSS or XPath.
+        selector: A CSS selector, or an XPath selector that SeleniumBase can
+            convert to CSS. In sb.find_elements, SeleniumBase automatically
+            attempts to convert XPath to CSS. Some XPath expressions, such
+            as those using `contains(...)`, cannot be converted to CSS and
+            therefore aren't supported by this tool.
 
         timeout: Maximum number of seconds to wait for at least one matching
-            element to appear.
+            element to appear. If the selector is an XPath selector that
+            cannot be converted into a valid CSS selector, then the wait
+            might be less than the timeout.
 
         include_html: If True, include each matching element's outer HTML.
             If False, return only tag name and text.
@@ -459,7 +465,8 @@ def find_elements(
         - count: Number of matching elements found.
         - matches: A list of element dictionaries containing tag_name and
           text, plus html when include_html=True.
-        If there's an error, returns a string with error details.
+        If there's an error during search, then "error" is added into the
+        returned dictionary with error details.
 
     Tool selection:
         - Need structured information about matching elements ->
@@ -470,77 +477,63 @@ def find_elements(
         - Need to know whether an element is present/visible ->
           use check_condition.
 
-    Note:
+    Notes:
         Element handles cannot be persisted across MCP calls. If you find
         elements and then need to act on one, resolve it again with the
         appropriate interaction tool.
+
+        For uncaught errors, @handle_sb_errors returns strings.
     """
     sb = _get_sb()
-    elements = sb.find_elements(selector, timeout=timeout)
-
-    if include_html:
+    try:
+        elements = sb.find_elements(selector, timeout=timeout)
+    except Exception as e:
         return {
-            "count": len(elements),
-            "matches": [
-                {
-                    "tag_name": element.tag_name,
-                    "text": element.text,
-                    "html": element.get_html(),
-                }
-                for element in elements
-            ],
+            "count": 0,
+            "matches": [],
+            "error": str(e),
         }
 
+    matches = []
+    for element in elements:
+        match = {
+            "tag_name": element.tag_name,
+            "text": element.text,
+        }
+        if include_html:
+            match["html"] = element.get_html()
+        matches.append(match)
+
     return {
-        "count": len(elements),
-        "matches": [
-            {
-                "tag_name": element.tag_name,
-                "text": element.text,
-            }
-            for element in elements
-        ],
+        "count": len(matches),
+        "matches": matches,
     }
 
 
 @mcp.tool()
 @handle_sb_errors
 def get_content(
-    selector: str | None = None,
+    selector: str = "body",
     output_format: Literal["text", "html", "urls"] = "text",
-    include_shadow_dom: bool = True,
+    timeout: float = 5,
 ) -> str | list[str]:
-    """Read visible text, HTML, or discovered URLs from the current page.
+    """Read visible text, HTML, or discovered URLs from the selected element.
 
-    Use this tool when you need actual page content or URL information rather
-    than page metadata.
+    Use this tool when you need to get actual page content or URL information
+    rather than page metadata.
 
     Args:
-        selector: Optional CSS selector or SeleniumBase text-matching selector
-            identifying the element whose content should be read. For
-            output_format="text" or "html", the selector scopes the returned
-            content to that element. For output_format="urls", the selector
-            scopes URL discovery to URLs within that element. When omitted,
-            the operation applies to the whole page.
+        selector: CSS selector or SeleniumBase-supported XPath selector.
 
         output_format:
-            - "text": Return visible text from the page or selected element.
-            - "html": Return HTML from the page or selected element.
-            - "urls": Return URLs discovered by SeleniumBase from the page
-              or selected element. URLs associated with elements such as
-              anchors, links, images, scripts, and metadata may be included.
-              SeleniumBase returns full URLs with their URL protocol prefixes.
+            - "text": Return visible text from the selected element.
+            - "html": Return HTML from the selected element.
+            - "urls": Return URLs discovered by SeleniumBase within the
+              selected element. Returned URLs are normalized to full URLs
+              with their protocol prefixes.
 
-        include_shadow_dom: When output_format="html" and selector is omitted,
-            include any shadow-root HTML present in the page. This option has
-            no effect for "text" or "urls", or when a selector is specified.
 
-    Returns:
-        For output_format="text", a string containing visible text.
-        For output_format="html", a string containing HTML.
-        For output_format="urls", a list of URL strings. This is useful for
-        crawling, link discovery, resource inspection, and finding candidate
-        URLs before navigating to them.
+        timeout: Maximum seconds to wait for the target element. Default: 5.
 
     Tool selection:
         - Need URL, title, origin, or User-Agent -> use get_page_info.
@@ -554,20 +547,19 @@ def get_content(
     """
     sb = _get_sb()
 
-    if output_format == "urls":
-        return sb.get_all_urls(selector=selector)
-
-    if selector is None:
-        if output_format == "html":
-            return sb.get_page_source(
-                include_shadow_dom=include_shadow_dom
-            )
-        return sb.get_text("body")
+    if output_format == "text":
+        return sb.get_text(selector, timeout=timeout)
 
     if output_format == "html":
-        return sb.get_element_html(selector)
+        return sb.get_element_html(selector, timeout=timeout)
 
-    return sb.get_text(selector)
+    if output_format == "urls":
+        return sb.get_all_urls(selector=selector, timeout=timeout)
+
+    return (
+        f"Error: unknown output_format '{output_format}'. "
+        "Use 'text', 'html', or 'urls'."
+    )
 
 
 @mcp.tool()
@@ -575,22 +567,24 @@ def get_content(
 def get_attributes(
     selector: str,
     attribute: str | None = None,
-) -> Any:
-    """Read HTML attributes from a matching element.
+    timeout: float = 5,
+) -> str | dict[str, Any] | None:
+    """Read HTML attributes from the first matching element.
 
-    Use this tool when you need the value of one or more HTML attributes
-    such as href, src, value, class, id, name, type, aria-label, or data-*.
+    Use this tool when you need the value of a specific HTML attribute,
+    or all HTML attributes of an element. Attributes could be something
+    such as href, src, value, class, id, name, type, aria-label, etc.
 
     Args:
-        selector: CSS selector or SeleniumBase text-matching selector for
-            the target element.
+        selector: CSS selector or SeleniumBase-supported XPath selector.
 
         attribute: Specific HTML attribute to retrieve. When omitted, return
-            all HTML attributes of the element as a dictionary.
+            all HTML attributes of the first matching element as a dictionary.
+
+        timeout: Maximum seconds to wait for the target element. Default: 5.
 
     Returns:
-        The requested attribute value, or a dictionary containing all
-        HTML attributes of the element when attribute is omitted.
+        The requested attribute(s).
 
     Tool selection:
         - Need one or more HTML attribute values from a specific element ->
@@ -601,13 +595,16 @@ def get_attributes(
         - Need to check element presence/visibility -> use 'check_condition'.
 
     This is a read-only operation.
+
+    If there's no matching element found within the timeout,
+        then @handle_sb_errors will return details from the exception raised.
     """
     sb = _get_sb()
 
     if attribute:
-        return sb.get_attribute(selector, attribute)
+        return sb.get_attribute(selector, attribute, timeout=timeout)
 
-    return sb.get_element_attributes(selector)
+    return sb.get_element_attributes(selector, timeout=timeout)
 
 
 @mcp.tool()
@@ -963,6 +960,7 @@ def focus(
         "focus",
         "highlight",
     ] = "scroll_to_element",
+    timeout: float = 5,
 ) -> str:
     """Scroll to, focus, or highlight an element.
 
@@ -976,16 +974,22 @@ def focus(
             - "scroll_to_element": Scroll the element into the viewport.
             - "focus": Move keyboard focus to the element.
             - "highlight": Temporarily highlight the element for debugging or
-              demonstration. May affect timing and reduce stealth.
+              demonstration by changing the border color. May affect timing
+              and/or reduce stealth.
+
+        timeout: Maximum seconds to wait for the target element. Default: 5.
+
+    If there's no matching element found within the timeout,
+        then @handle_sb_errors will return details from the exception raised.
     """
     sb = _get_sb()
 
     if action == "scroll_to_element":
-        sb.scroll_into_view(selector)
+        sb.scroll_into_view(selector, timeout=timeout)
     elif action == "focus":
-        sb.find_element(selector).focus()
+        sb.find_element(selector, timeout=timeout).focus()
     elif action == "highlight":
-        sb.highlight(selector)
+        sb.highlight(selector, timeout=timeout)
     else:
         return (
             f"Error: unknown action '{action}'. "
