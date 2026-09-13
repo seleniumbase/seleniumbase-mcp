@@ -193,7 +193,7 @@ def page_snapshot() -> dict:
 
 @mcp.tool()
 @handle_sb_errors
-def goto_url(url: str) -> str:
+def open_url(url: str) -> str:
     """Navigate to the given URL in the web browser.
     If the URL doesn't start with a protocol (eg: `https://`),
       then `https://` is automatically prefixed in before navigation.
