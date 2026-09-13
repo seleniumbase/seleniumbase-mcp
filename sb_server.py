@@ -193,7 +193,7 @@ def page_snapshot() -> dict:
 
 @mcp.tool()
 @handle_sb_errors
-def navigate(url: str) -> str:
+def goto_url(url: str) -> str:
     """Navigate to the given URL in the web browser.
     If the URL doesn't start with a protocol (eg: `https://`),
       then `https://` is automatically prefixed in before navigation.
@@ -342,10 +342,7 @@ def is_selected(selector: str) -> bool | str:
 
 @mcp.tool()
 @handle_sb_errors
-def click(
-    selector: str,
-    timeout: float = 7,
-) -> str:
+def click_element(selector: str, timeout: float = 7) -> str:
     """Click an element matched by the given CSS selector.
     Raises an exception if the element isn't found within the timeout."""
     _get_sb().click(selector, timeout=timeout)
@@ -391,10 +388,7 @@ def click_link(link_text: str) -> str:
 
 @mcp.tool()
 @handle_sb_errors
-def double_click(
-    selector: str,
-    timeout: float = 7,
-) -> str:
+def double_click(selector: str, timeout: float = 7) -> str:
     """Double-click an element.
     Raises an exception if the element isn't found within the default timeout.
     """
@@ -439,11 +433,7 @@ def type_text(
 
 @mcp.tool()
 @handle_sb_errors
-def set_value(
-    selector: str,
-    text: str,
-    timeout: float = 7,
-) -> str:
+def set_value(selector: str, text: str, timeout: float = 7) -> str:
     """Set an input's value directly (e.g. for sliders, fast form fills).
     Raises an exception if the element isn't found within the timeout.
     """
@@ -453,10 +443,7 @@ def set_value(
 
 @mcp.tool()
 @handle_sb_errors
-def clear_input(
-    selector: str,
-    timeout: float = 7,
-) -> str:
+def clear_input(selector: str, timeout: float = 7) -> str:
     """Clear an input field.
     Raises an exception if the element isn't found within the timeout.
     """
@@ -466,10 +453,7 @@ def clear_input(
 
 @mcp.tool()
 @handle_sb_errors
-def submit(
-    selector: str,
-    timeout: float = 7,
-) -> str:
+def submit(selector: str, timeout: float = 7) -> str:
     """Submit a form via a selector inside it.
     Raises an exception if the element isn't found within the timeout.
     """
@@ -560,11 +544,7 @@ def nested_click(parent_selector: str, selector: str) -> str:
 
 @mcp.tool()
 @handle_sb_errors
-def choose_file(
-    selector: str,
-    file_path: str,
-    timeout: float = 7,
-) -> str:
+def choose_file(selector: str, file_path: str, timeout: float = 7) -> str:
     """Set a <input type="file"> element to upload a local file."""
     _get_sb().choose_file(selector, file_path, timeout=timeout)
     return f"Set file input {selector} to {file_path}"

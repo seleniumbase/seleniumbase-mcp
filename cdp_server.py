@@ -34,7 +34,8 @@ having to choose between multiple near-identical tools.
 
 Tool-selection philosophy:
 - Use 'start_browser'/'close_browser' for opening/quitting the web browser.
-- Use 'navigate'/'manage_history' for browser navigation & history inspection.
+- Use 'goto_url'/'manage_history' for browser navigation and history
+  inspection.
 - Use 'get_page_info' for reading browser/page metadata such as URL/title.
 - Use 'get_content'/'get_attributes' for reading text, HTML, or attributes.
 - Use 'find_elements' for discovering and inspecting multiple matching
@@ -43,11 +44,12 @@ Tool-selection philosophy:
 - Use 'wait_for' when the agent needs to wait for a condition to become true.
 - Use 'assert_condition' when the agent needs to verify an expected condition
   and treat failure as an assertion error.
-- Use 'click'/'type_text'/'select_option' for standard page interactions.
+- Use 'click_element'/'type_text'/'select_option' for standard page
+  interactions.
 - Use 'hover_action' for just a hover, with a click, or with a drag/drop.
-- Use 'focus' for element positioning and visual focus.
+- Use 'focus_element' for element positioning and visual focus.
 - Use 'solve_captcha' for clicking the checkbox of a CAPTCHA on the page.
-- Use 'save_output' for saving page output as a PNG, a PDF, or an HTML file.
+- Use 'save_page' for saving page output as a PNG, a PDF, or an HTML file.
 """
 from __future__ import annotations
 import atexit
@@ -109,8 +111,8 @@ def start_browser(
 ) -> str:
     """Launch a persistent SeleniumBase Pure CDP Mode browser session.
 
-    Call this before using browser interaction tools such as navigate,
-    get_content, click, type_text, or find_elements. The same browser
+    Call this before using browser interaction tools such as goto_url,
+    get_content, click_element, type_text, or find_elements. The same browser
     session remains active across subsequent MCP tool calls until
     close_browser is called or the server process exits.
 
@@ -336,7 +338,7 @@ def get_page_info() -> dict[str, Any]:
 
 @mcp.tool()
 @handle_sb_errors
-def navigate(url: str) -> str:
+def goto_url(url: str) -> str:
     """Navigate the current browser tab to a URL.
 
     Use this when the browser needs to visit a new URL rather than move
@@ -358,7 +360,7 @@ def navigate(url: str) -> str:
         A confirmation message containing the requested URL.
 
     Tool selection:
-        - Go to a new URL -> use navigate.
+        - Go to a new URL -> use goto_url.
         - Return to the previous page -> use manage_history(action="back").
         - Go forward in history -> use manage_history(action="forward").
         - Refresh the current page -> use manage_history(action="reload").
@@ -377,7 +379,7 @@ def manage_history(
 
     Use 'back' or 'forward' for history navigation, 'reload' to refresh
     while bypassing the cache, or 'list' to inspect history.
-    Use 'navigate' for an arbitrary URL.
+    Use 'goto_url' for navigation to an arbitrary URL.
 
     Args:
         action:
@@ -473,7 +475,7 @@ def find_elements(
           use find_elements.
         - Need the visible text/HTML of a page or a single element ->
           use get_content.
-        - Need to click one of several matches -> use click with nth.
+        - Need to click one of several matches -> use click_element with nth.
         - Need to know whether an element is present/visible ->
           use check_condition.
 
@@ -524,6 +526,7 @@ def get_content(
 
     Args:
         selector: CSS selector or SeleniumBase-supported XPath selector.
+            Default: "body".
 
         output_format:
             - "text": Return visible text from the selected element.
@@ -532,18 +535,18 @@ def get_content(
               selected element. Returned URLs are normalized to full URLs
               with their protocol prefixes.
 
-
         timeout: Maximum seconds to wait for the target element. Default: 5.
 
     Tool selection:
         - Need URL, title, origin, or User-Agent -> use get_page_info.
-        - Need visible text -> use output_format="text".
-        - Need page or element HTML -> use output_format="html".
-        - Need URLs from the page or an element -> use output_format="urls".
+        - Need visible text, html, or URLs on a page -> use get_content.
         - Need structured information about matching elements ->
           use find_elements.
         - Need to check element presence/visibility -> use check_condition.
         - Need to wait for content to appear -> use wait_for.
+
+    If there's no matching element found within the timeout,
+        then @handle_sb_errors returns details from the exception raised.
     """
     sb = _get_sb()
 
@@ -583,9 +586,6 @@ def get_attributes(
 
         timeout: Maximum seconds to wait for the target element. Default: 5.
 
-    Returns:
-        The requested attribute(s).
-
     Tool selection:
         - Need one or more HTML attribute values from a specific element ->
           use this tool.
@@ -597,7 +597,7 @@ def get_attributes(
     This is a read-only operation.
 
     If there's no matching element found within the timeout,
-        then @handle_sb_errors will return details from the exception raised.
+        then @handle_sb_errors returns details from the exception raised.
     """
     sb = _get_sb()
 
@@ -680,7 +680,7 @@ def check_condition(
 
 @mcp.tool()
 @handle_sb_errors
-def click(
+def click_element(
     selector: str,
     nth: int | None = None,
     all_matches: bool = False,
@@ -733,11 +733,14 @@ def click(
             indexed click. Default: True.
 
     Examples:
-        - Click one element: `click("button.submit")`
-        - Click the 2nd matching element: `click("button", nth=2)`
-        - Click all visible matches: `click(".dismiss", all_matches=True)`
-        - Click only if already visible: `click("#menu", only_if_visible=True)`
-        - Click inside a container: `click(".item", parent_selector="#result")`
+        - Click one element: `click_element("button.submit")`
+        - Click the 2nd matching element: `click_element("button", nth=2)`
+        - Click all visible matches:
+          `click_element(".dismiss", all_matches=True)`
+        - Click only if already visible:
+          `click_element("#menu", only_if_visible=True)`
+        - Click inside a container:
+          `click_element(".item", parent_selector="#result")`
     """
     sb = _get_sb()
 
@@ -768,11 +771,7 @@ def click(
 def hover_action(
     selector1: str,
     selector2: str | None = None,
-    action: Literal[
-        "none",
-        "click",
-        "drag_and_drop",
-    ] = "none",
+    action: Literal["hover", "hover_and_click", "drag_and_drop"] = "hover",
 ) -> str:
     """Hover over an element, optionally click another, or drag-and-drop.
 
@@ -782,46 +781,39 @@ def hover_action(
     Args:
         selector1:
             The primary element selector.
-            For action="none", this is the element to hover over.
-            For action="click", this is the element to hover over before
-            clicking selector2.
+            For action="hover", this is the element to hover over.
+            For action="hover_and_click", this is the element to hover over
+            before clicking selector2.
             For action="drag_and_drop", this is the draggable source element.
 
         selector2:
             The secondary element selector.
-            Required for action="click", where it identifies the element
-            revealed or targeted after hovering selector1.
+            Required for action="hover_and_click", where it identifies
+            the element revealed or targeted after hovering selector1.
             Required for action="drag_and_drop", where it identifies the
             destination/drop target.
-            Not used for action="none".
+            Not used for action="hover".
 
         action:
-            - "none": Hover over selector1 only.
-            - "click": Hover over selector1, then click selector2.
+            - "hover": Hover over selector1 only.
+            - "hover_and_click": Hover over selector1, then click selector2.
             - "drag_and_drop": Drag selector1 and drop it onto selector2.
 
     Returns:
         A confirmation message describing the performed operation.
 
     Tool selection:
-        - Simple hover -> action="none".
-        - Hover over one element and then click another -> action="click".
+        - Simple hover -> action="hover".
+        - Hover over one element and click another -> action="hover_and_click".
         - Drag one element onto another -> action="drag_and_drop".
-
-    Notes:
-        For action="click", selector1 is the hover target and selector2 is
-        the click target.
-
-        For action="drag_and_drop", selector1 is the source and selector2
-        is the destination.
     """
     sb = _get_sb()
 
-    if action == "none":
+    if action == "hover":
         sb.hover_element(selector1)
         return f"Hovered {selector1}"
 
-    if action == "click":
+    if action == "hover_and_click":
         if selector2 is None:
             return "Error: action='click' requires selector2."
         sb.hover_and_click(selector1, selector2)
@@ -835,7 +827,7 @@ def hover_action(
 
     return (
         f"Error: unknown action '{action}'. "
-        "Use 'none', 'click', or 'drag_and_drop'."
+        "Use 'hover', 'hover_and_click', or 'drag_and_drop'."
     )
 
 
@@ -934,8 +926,8 @@ def select_option(
         An error when the dropdown or requested option cannot be found.
 
     This tool is for native <select> elements. For custom JavaScript
-    dropdowns made from div/button/list elements, use click or other
-    element-interaction tools instead.
+    dropdowns made from div/button/list elements, use click_element
+    or other element-interaction tools instead.
     """
     sb = _get_sb()
 
@@ -953,7 +945,7 @@ def select_option(
 
 @mcp.tool()
 @handle_sb_errors
-def focus(
+def focus_element(
     selector: str,
     action: Literal[
         "scroll_to_element",
@@ -965,7 +957,8 @@ def focus(
     """Scroll to, focus, or highlight an element.
 
     This tool does not click, type, select, hover, or otherwise activate the
-    element. Use `click`, `type_text`, or `hover_action` for those operations.
+    element. Use `click_element`, `type_text`, or `hover_action` for those
+    operations.
 
     Args:
         selector: CSS selector or SeleniumBase selector identifying the target.
@@ -980,7 +973,7 @@ def focus(
         timeout: Maximum seconds to wait for the target element. Default: 5.
 
     If there's no matching element found within the timeout,
-        then @handle_sb_errors will return details from the exception raised.
+        then @handle_sb_errors returns details from the exception raised.
     """
     sb = _get_sb()
 
@@ -1379,7 +1372,7 @@ def manage_storage(
 
 @mcp.tool()
 @handle_sb_errors
-def scroll(
+def scroll_page(
     direction: Literal["up", "down", "top", "bottom"] = "down",
     amount: int = 25,
 ) -> str:
@@ -1399,8 +1392,8 @@ def scroll(
     Values greater than 100 for `amount` are allowed.
     For example, 200 means approximately two viewport heights.
 
-    Use focus(action="scroll_to_element") when the goal is to reveal a
-    specific element rather than scroll the page by a relative amount.
+    Use focus_element(action="scroll_to_element") when the goal is to reveal
+    a specific element rather than scroll the page by a relative amount.
     """
     sb = _get_sb()
 
@@ -1506,7 +1499,7 @@ def manage_tabs(
     """Manage browser tabs, including opening new ones.
 
     Use this for listing, opening, switching, or closing tabs.
-    Use `navigate` and `manage_history` for navigation within the active tab.
+    Use `goto_url` and `manage_history` for navigation within the active tab.
 
     Args:
         action:
@@ -1621,7 +1614,7 @@ def solve_captcha() -> str:
 
 @mcp.tool()
 @handle_sb_errors
-def save_output(
+def save_page(
     format: Literal["screenshot", "html", "pdf"] = "screenshot",
     filename: str | None = None,
     folder: str | None = None,
@@ -1673,7 +1666,7 @@ def save_output(
         - Do not use this tool when you only need page metadata such as the
           URL or title; use get_page_info instead.
         - Do not use this tool to manipulate the page; use the appropriate
-          interaction tool such as click, type_text, or select_option.
+          interaction tool such as click_element, type_text, or select_option.
 
     Returns:
         A confirmation message containing the requested output format and
@@ -1713,9 +1706,9 @@ def run_javascript(expression: str) -> Any:
     and other same-origin page resources available to JavaScript.
 
     Tool selection:
-        - Prefer click, type_text, select_option, hover_action,
-          focus, scroll, and other higher-level tools for normal browser
-          interactions.
+        - Prefer click_element, type_text, select_option, hover_action,
+          focus_element, scroll_page, and other higher-level tools for normal
+          browser interactions.
         - Prefer get_content, get_attributes, and find_elements for reading
           page content or element information.
         - Prefer manage_storage for ordinary localStorage/sessionStorage
