@@ -139,7 +139,7 @@ def close_browser() -> str:
 
 @mcp.tool()
 @handle_sb_errors
-def navigate(url: str) -> str:
+def goto_url(url: str) -> str:
     """Navigate to the given URL in the web browser.
     If the URL doesn't start with a protocol (eg: `https://`),
       then `https://` is automatically prefixed in before navigation.
@@ -232,7 +232,7 @@ def is_element_visible(selector: str) -> bool:
 
 @mcp.tool()
 @handle_sb_errors
-def click(selector: str, timeout: float = 7) -> str:
+def click_element(selector: str, timeout: float = 7) -> str:
     """Click an element matched by the given selector.
     Raises an exception if the element isn't found within the timeout."""
     d = _get_driver()

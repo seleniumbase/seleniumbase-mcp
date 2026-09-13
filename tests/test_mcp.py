@@ -24,7 +24,7 @@ async def test_server(name: str, command: str) -> None:
 
         assert "start_browser" in tools
         assert "close_browser" in tools
-        assert "navigate" in tools
+        assert "goto_url" in tools
 
         result = await client.call_tool(
             "start_browser",
@@ -33,7 +33,7 @@ async def test_server(name: str, command: str) -> None:
         assert not result.is_error
 
         result = await client.call_tool(
-            "navigate",
+            "goto_url",
             {
                 "url": (
                     "data:text/html,"

@@ -97,7 +97,7 @@ The location of `claude_desktop_config.json` depends on your system:
 - macOS: `~/Library/Application Support/Claude/claude_desktop_config.json`
 - Windows: `%APPDATA%\Claude\claude_desktop_config.json`
 
-Restart Claude Desktop. You should see a 🔨 tools icon indicating the server(s) connected, with tools like `start_browser`, `navigate`, `click`, etc. available. Only keep the entries you actually want. Three separate browser-automation servers is a lot if you only need one.
+Restart Claude Desktop. You should see a 🔨 tools icon indicating the server(s) connected, with tools like `start_browser`, `goto_url`, `click_element`, etc. available. Only keep the entries you actually want. Three separate browser-automation servers is a lot if you only need one.
 
 ## 4. Connect it to Claude Code
 
@@ -145,14 +145,14 @@ claude mcp add seleniumbase-sb -- uv run seleniumbase-sb
 |---|---|
 | `start_browser(browser, headless, uc, incognito)` | Launch a browser session (headless defaults to `False`) |
 | `close_browser()` | End the session |
-| `navigate(url)` | Go to a URL |
+| `goto_url(url)` | Go to a URL |
 | `go_back()` / `go_forward()` / `refresh_page()` | History navigation |
 | `get_current_url()` / `get_title()` | Page metadata |
 | `get_page_source()` | Full HTML |
 | `get_text(selector)` | Visible text of an element |
 | `find_elements_count(selector)` | Count matches |
 | `is_element_visible(selector)` | Visibility check |
-| `click(selector, timeout)` | Click (CSS or XPath) |
+| `click_element(selector, timeout)` | Click (CSS or XPath) |
 | `type_text(selector, text, clear_first, timeout)` | Fill a field |
 | `select_option_by_text(dropdown_selector, option)` | Choose a dropdown option |
 | `wait_for_element_present(selector, timeout)` | Explicit wait |
@@ -199,16 +199,16 @@ in the loop at all. Reference:
 | Group             | Tool(s)                                                                                                                                          |
 | ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Session           | `start_browser(url, headless, use_chromium, browser_executable_path, incognito, guest, ad_block, proxy)`, `close_browser`                        |
-| Navigation        | `navigate`, `navigate_history(action: back/forward/reload)`, `get_page_info` (running status, url, title, origin, user agent, history in one call) |
-| Finding & reading | `find_elements(selector, timeout, include_html)`, `get_content(selector, output_format: text/html/urls, include_shadow_dom)`, `get_attributes`, `check_state(check: present/visible/count/text_visible)` |
-| Interacting       | `click(selector, nth, all_matches, only_if_visible, parent_selector, timeout, scroll)`, `hover_action(selector1, selector2, action: none/click/drag_and_drop)`, `type_text(mode: fill_input/append/fast_type/set_value/clear_only)`, `select_option(by: text/value/index)`, `focus(action: scroll_to_element/focus/highlight)` |
+| Navigation        | `goto_url`, `manage_history(action: back/forward/reload/list)`, `get_page_info` (running status, url, title, origin, user agent, history in one call) |
+| Finding & reading | `find_elements(selector, timeout, include_html)`, `get_content(selector, output_format: text/html/urls)`, `get_attributes`, `check_state(check: present/visible/count/text_visible)` |
+| Interacting       | `click_element(selector, nth, all_matches, only_if_visible, parent_selector, timeout, scroll)`, `hover_action(selector1, selector2, action: hover/hover_and_click/drag_and_drop)`, `type_text(mode: fill_input/append/fast_type/set_value/clear_only)`, `select_option(by: text/value/index)`, `focus_element(action: scroll_to_element/focus/highlight)` |
 | Waiting           | `wait_for(state: present/visible/not_visible/absent/seconds_passed, text)`                                                                         |
 | Assertions        | `assert_condition(check: element_present/element_visible/text_visible/title/url/url_contains)`                                                     |
 | Cookies & storage | `manage_cookies(action: get_all/clear/save/load)`, `manage_storage(storage: local/session, action: get/set)`                                       |
-| Scrolling         | `scroll(direction: up/down/top/bottom, amount)`                                                                                                    |
+| Scrolling         | `scroll_page(direction: up/down/top/bottom, amount)`                                                                                                    |
 | Windows & tabs    | `manage_window(action: get_rect/set_rect/maximize/minimize)`, `manage_tabs(action: list/open/switch/switch_newest/close_active)`                   |
 | Captcha           | `solve_captcha`                                                                                                                                    |
-| Output & misc     | `save_output(format: screenshot/html/pdf)`, `run_javascript`                                                                                       |
+| Output & misc     | `save_page(format: screenshot/html/pdf)`, `run_javascript`                                                                                       |
 
 ### CDP-specific design notes
 
