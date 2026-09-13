@@ -97,7 +97,7 @@ The location of `claude_desktop_config.json` depends on your system:
 - macOS: `~/Library/Application Support/Claude/claude_desktop_config.json`
 - Windows: `%APPDATA%\Claude\claude_desktop_config.json`
 
-Restart Claude Desktop. You should see a 🔨 tools icon indicating the server(s) connected, with tools like `start_browser`, `goto_url`, `click_element`, etc. available. Only keep the entries you actually want. Three separate browser-automation servers is a lot if you only need one.
+Restart Claude Desktop. You should see a 🔨 tools icon indicating the server(s) connected, with tools like `start_browser`, `open_url`, `click_element`, etc. available. Only keep the entries you actually want. Three separate browser-automation servers is a lot if you only need one.
 
 ## 4. Connect it to Claude Code
 
@@ -145,7 +145,7 @@ claude mcp add seleniumbase-sb -- uv run seleniumbase-sb
 |---|---|
 | `start_browser(browser, headless, uc, incognito)` | Launch a browser session (headless defaults to `False`) |
 | `close_browser()` | End the session |
-| `goto_url(url)` | Go to a URL |
+| `open_url(url)` | Go to a URL |
 | `go_back()` / `go_forward()` / `refresh_page()` | History navigation |
 | `get_current_url()` / `get_title()` | Page metadata |
 | `get_page_source()` | Full HTML |
@@ -199,10 +199,10 @@ in the loop at all. Reference:
 | Group             | Tool(s)                                                                                                                                          |
 | ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Session           | `start_browser(url, headless, use_chromium, browser_executable_path, incognito, guest, ad_block, proxy)`, `close_browser`                        |
-| Navigation        | `goto_url`, `manage_history(action: back/forward/reload/list)`, `get_page_info` (running status, url, title, origin, user agent, history in one call) |
-| Finding & reading | `find_elements(selector, timeout, include_html)`, `get_content(selector, output_format: text/html/urls)`, `get_attributes`, `check_state(check: present/visible/count/text_visible)` |
+| Navigation        | `open_url`, `manage_history(action: back/forward/reload/list)`, `get_page_info` (running status, url, title, origin, user agent, history in one call) |
+| Finding & reading | `find_elements(selector, timeout, include_html)`, `get_content(selector, output_format: text/html/urls)`, `get_attributes`, `check_for_condition(check: present/visible/count/text_visible)` |
 | Interacting       | `click_element(selector, nth, all_matches, only_if_visible, parent_selector, timeout, scroll)`, `hover_action(selector1, selector2, action: hover/hover_and_click/drag_and_drop)`, `type_text(mode: fill_input/append/fast_type/set_value/clear_only)`, `select_option(by: text/value/index)`, `focus_element(action: scroll_to_element/focus/highlight)` |
-| Waiting           | `wait_for(state: present/visible/not_visible/absent/seconds_passed, text)`                                                                         |
+| Waiting           | `wait_for_condition(state: present/visible/not_visible/absent/seconds_passed, text)`                                                               |
 | Assertions        | `assert_condition(check: element_present/element_visible/text_visible/title/url/url_contains)`                                                     |
 | Cookies & storage | `manage_cookies(action: get_all/clear/save/load)`, `manage_storage(storage: local/session, action: get/set)`                                       |
 | Scrolling         | `scroll_page(direction: up/down/top/bottom, amount)`                                                                                                    |
@@ -226,12 +226,6 @@ in the loop at all. Reference:
 - **Session teardown.** `sb.quit()` (used by `close_browser`) is the
   documented way to end a session; the browser also auto-closes if the
   process exits without it.
-- **Not wrapped:** PyAutoGUI-based `gui_*` methods (excluded by design —
-  see the top-level design notes), low-level plumbing
-  (`get_websocket_url`, `add_handler`, permission grants, raw
-  `get_document`/`get_flattened_document`), and exact method aliases
-  (`open`/`goto` vs `get`) were left out to keep the tool list focused —
-  add them the same way as any other tool if you need them.
 
 ---
 
