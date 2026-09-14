@@ -12,8 +12,8 @@ SERVERS = [
 
 async def test_server(name: str, command: str) -> None:
     params = StdioServerParameters(
-        command="uv",
-        args=["run", command],
+        command=command,
+        args=[],
     )
 
     print(f'Starting test for the "{name}" server...')
@@ -47,7 +47,7 @@ async def test_server(name: str, command: str) -> None:
         result = result.structured_content["result"]
         assert "<title>MCP Test</title>" in result
 
-        if name == "seleniumbase-sb" or name == "seleniumbase-driver":
+        if name in ("seleniumbase-sb", "seleniumbase-driver"):
             result = await client.call_tool("get_title", {})
             assert not result.is_error
             assert result.content[0].text == "MCP Test"
@@ -59,10 +59,11 @@ async def test_server(name: str, command: str) -> None:
             assert not result.is_error
         else:
             result = await client.call_tool(
-                "get_content", {
+                "get_content",
+                {
                     "selector": "title",
-                    "output_format": "text"
-                }
+                    "output_format": "text",
+                },
             )
             assert result.content[0].text == "MCP Test"
 
