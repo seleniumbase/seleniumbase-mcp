@@ -158,7 +158,7 @@ claude mcp add seleniumbase-sb -- uv run seleniumbase-sb
 | `wait_for_element_present(selector, timeout)` | Explicit wait |
 | `switch_to_frame(selector)` / `switch_to_default_content()` | iframe handling |
 | `assert_text(text, selector)` | Verify text is present |
-| `screenshot(filename)` | Save a screenshot |
+| `save_screenshot(filename)` | Save a screenshot |
 | `execute_script(script)` | Run a JS script |
 
 ## Design notes / things to adapt for your use case
