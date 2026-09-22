@@ -1430,16 +1430,16 @@ def manage_cookies(
 
     Args:
         action:
-            - "get_all": Return all cookies currently available to the
-              browser, including attributes such as name, value, domain,
-              path, expiry, and security flags.
+            - "get_all": Return all cookies currently available to the browser,
+              including attributes such as name, value, domain, path, expiry,
+              and security flags.
             - "clear": Delete all cookies from the current browser session.
-            - "save": Save current cookies to filename.
+            - "save": Save current cookies to filename. The file may be
+              created or overwritten.
             - "load": Load cookies from filename into the current browser
               session.
 
-        filename: The name of the file to save/load cookies from.
-            Will be sanitized and saved in a restricted directory.
+        filename: The sanitized filesystem path used by save/load.
             Ignored for get_all and clear.
 
     Returns:
@@ -1453,19 +1453,13 @@ def manage_cookies(
         identifiers, and other private information. Only inspect, save,
         load, or share cookies when explicitly authorized.
 
+        The save action can overwrite existing files.
+
     Notes:
         Loading saved cookies does not guarantee restoration of a login.
         Cookies may be expired, invalidated, domain/path restricted, or
         dependent on other browser state. Navigate to the relevant site when
         necessary so the browser has the appropriate origin for the cookies.
-
-    Tool selection:
-        - Need cookies or authentication cookies -> use this tool.
-        - Need localStorage/sessionStorage -> use manage_storage.
-        - Need arbitrary JavaScript or storage operations not covered here ->
-          use run_javascript.
-        - Need visible page content or HTML -> use get_content.
-        - Need an element's HTML attributes -> use get_attributes.
     """
     sb = _get_sb()
 
