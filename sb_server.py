@@ -29,6 +29,7 @@ from functools import wraps
 from typing import Any, Literal
 from mcp.server import MCPServer
 from mcp.server.mcpserver.exceptions import ToolError
+from mcp.types import ToolAnnotations
 from seleniumbase import SB
 
 mcp = MCPServer("seleniumbase-sb")
@@ -63,7 +64,17 @@ def handle_sb_errors(func):
 # Session lifecycle
 # ---------------------------------------------------------------------------
 
-@mcp.tool()
+@mcp.tool(
+    title="Start Browser",
+    annotations=ToolAnnotations(
+        # Single, consistent behavior: launches (or no-ops if already
+        # running) a persistent browser session.
+        read_only_hint=False,
+        destructive_hint=False,
+        idempotent_hint=True,  # No-ops with the same message if already up.
+        open_world_hint=True,  # Launches a real browser onto the open web.
+    ),
+)
 @handle_sb_errors
 def start_browser(
     browser: Literal["chrome", "edge", "firefox", "chromium"] = "chrome",
@@ -140,7 +151,14 @@ def start_browser(
         )
 
 
-@mcp.tool()
+@mcp.tool(
+    title="Close Browser",
+    annotations=ToolAnnotations(
+        read_only_hint=False,
+        idempotent_hint=True,
+        open_world_hint=False,
+    ),
+)
 @handle_sb_errors
 def close_browser() -> str:
     global _sb_context, _sb
@@ -158,40 +176,49 @@ def close_browser() -> str:
 # Page information
 # ---------------------------------------------------------------------------
 
-@mcp.tool()
+@mcp.tool(
+    title="Get Page Info",
+    annotations=ToolAnnotations(
+        read_only_hint=True,
+        destructive_hint=False,
+        idempotent_hint=True,
+        open_world_hint=True,
+    ),
+)
 @handle_sb_errors
-def browser_status() -> dict:
+def get_page_info() -> dict[str, Any]:
     """Return basic information about the current browser session."""
     if _sb is None:
+        return {"running": False}
+
+    try:
+        return {
+            "running": True,
+            "url": _sb.get_current_url(),
+            "title": _sb.get_title(),
+            "origin": _sb.get_origin(),
+            "user_agent": _sb.get_user_agent(),
+        }
+    except Exception as e:
         return {
             "running": False,
+            "error": f"{e.__class__.__name__}: {str(e).strip()}",
         }
-
-    return {
-        "running": True,
-        "url": _sb.get_current_url(),
-        "title": _sb.get_title(),
-    }
-
-
-@mcp.tool()
-@handle_sb_errors
-def page_snapshot() -> dict:
-    """Return compact information about the current page."""
-    sb = _get_sb()
-
-    return {
-        "url": sb.get_current_url(),
-        "title": sb.get_title(),
-        "text": sb.get_text("body"),
-    }
 
 
 # ---------------------------------------------------------------------------
 # Navigation
 # ---------------------------------------------------------------------------
 
-@mcp.tool()
+@mcp.tool(
+    title="Open URL",
+    annotations=ToolAnnotations(
+        read_only_hint=False,
+        destructive_hint=False,
+        idempotent_hint=False,
+        open_world_hint=True,
+    ),
+)
 @handle_sb_errors
 def open_url(url: str) -> str:
     """Navigate to the given URL in the web browser.
@@ -205,7 +232,15 @@ def open_url(url: str) -> str:
     return f"Navigated to {url}"
 
 
-@mcp.tool()
+@mcp.tool(
+    title="Refresh Page",
+    annotations=ToolAnnotations(
+        read_only_hint=False,
+        destructive_hint=False,
+        idempotent_hint=False,
+        open_world_hint=True,
+    ),
+)
 @handle_sb_errors
 def refresh_page() -> str:
     """Refresh the current page.
@@ -264,7 +299,15 @@ def get_user_agent() -> str:
 # Finding & reading
 # ---------------------------------------------------------------------------
 
-@mcp.tool()
+@mcp.tool(
+    title="Get Text",
+    annotations=ToolAnnotations(
+        read_only_hint=True,
+        destructive_hint=False,
+        idempotent_hint=True,
+        open_world_hint=True,
+    ),
+)
 @handle_sb_errors
 def get_text(selector: str = "body") -> str:
     """Get the visible text within an element (default: whole page body).
@@ -273,63 +316,135 @@ def get_text(selector: str = "body") -> str:
     return _get_sb().get_text(selector)
 
 
-@mcp.tool()
+@mcp.tool(
+    title="Get HTML Source",
+    annotations=ToolAnnotations(
+        read_only_hint=True,
+        destructive_hint=False,
+        idempotent_hint=True,
+        open_world_hint=True,
+    ),
+)
 @handle_sb_errors
 def get_html_source() -> str:
     """Get the full HTML source of the current page."""
     return _get_sb().get_page_source()
 
 
-@mcp.tool()
+@mcp.tool(
+    title="Get Element HTML",
+    annotations=ToolAnnotations(
+        read_only_hint=True,
+        destructive_hint=False,
+        idempotent_hint=True,
+        open_world_hint=True,
+    ),
+)
 @handle_sb_errors
 def get_element_html(selector: str) -> str:
     """Get the outer HTML of a specific element."""
     return _get_sb().get_html(selector)
 
 
-@mcp.tool()
+@mcp.tool(
+    title="Get Attribute",
+    annotations=ToolAnnotations(
+        read_only_hint=True,
+        destructive_hint=False,
+        idempotent_hint=True,
+        open_world_hint=True,
+    ),
+)
 @handle_sb_errors
 def get_attribute(selector: str, attribute: str) -> Any:
     """Get one attribute's value from an element."""
     return _get_sb().get_attribute(selector, attribute)
 
 
-@mcp.tool()
+@mcp.tool(
+    title="Find Elements Count",
+    annotations=ToolAnnotations(
+        read_only_hint=True,
+        destructive_hint=False,
+        idempotent_hint=True,
+        open_world_hint=True,
+    ),
+)
 @handle_sb_errors
 def find_elements_count(selector: str) -> int | str:
     """Count how many elements on the page match a selector."""
     return len(_get_sb().find_elements(selector))
 
 
-@mcp.tool()
+@mcp.tool(
+    title="Is Element Present",
+    annotations=ToolAnnotations(
+        read_only_hint=True,
+        destructive_hint=False,
+        idempotent_hint=True,
+        open_world_hint=True,
+    ),
+)
 @handle_sb_errors
 def is_element_present(selector: str) -> bool | str:
     """Check whether an element matching a selector exists in the DOM."""
     return _get_sb().is_element_present(selector)
 
 
-@mcp.tool()
+@mcp.tool(
+    title="Is Element Visible",
+    annotations=ToolAnnotations(
+        read_only_hint=True,
+        destructive_hint=False,
+        idempotent_hint=True,
+        open_world_hint=True,
+    ),
+)
 @handle_sb_errors
 def is_element_visible(selector: str) -> bool | str:
     """Check whether an element matching a selector is visible."""
     return _get_sb().is_element_visible(selector)
 
 
-@mcp.tool()
+@mcp.tool(
+    title="Is Element Clickable",
+    annotations=ToolAnnotations(
+        read_only_hint=True,
+        destructive_hint=False,
+        idempotent_hint=True,
+        open_world_hint=True,
+    ),
+)
 @handle_sb_errors
 def is_element_clickable(selector: str) -> bool | str:
     """Check whether an element matching a selector is clickable."""
     return _get_sb().is_element_clickable(selector)
 
 
-@mcp.tool()
+@mcp.tool(
+    title="Is Text Visible",
+    annotations=ToolAnnotations(
+        read_only_hint=True,
+        destructive_hint=False,
+        idempotent_hint=True,
+        open_world_hint=True,
+    ),
+)
 @handle_sb_errors
 def is_text_visible(text: str, selector: str = "html") -> bool | str:
     """Check whether specific text is visible within an element."""
     return _get_sb().is_text_visible(text, selector)
 
 
-@mcp.tool()
+@mcp.tool(
+    title="Is Selected",
+    annotations=ToolAnnotations(
+        read_only_hint=True,
+        destructive_hint=False,
+        idempotent_hint=True,
+        open_world_hint=True,
+    ),
+)
 @handle_sb_errors
 def is_selected(selector: str) -> bool | str:
     """Check whether a checkbox/radio-button element is selected/checked."""
@@ -340,7 +455,20 @@ def is_selected(selector: str) -> bool | str:
 # Interacting with elements
 # ---------------------------------------------------------------------------
 
-@mcp.tool()
+@mcp.tool(
+    title="Click Element",
+    annotations=ToolAnnotations(
+        # These settings are consistent across all click modes. The tool
+        # always performs a browser interaction, regardless of which matching
+        # element(s) are selected.
+        read_only_hint=False,  # Clicking can modify browser/page state.
+        destructive_hint=False,  # The generic click operation is not
+        # inherently destructive; the target may be.
+        idempotent_hint=False,  # Repeating a click can produce a different
+        # result or trigger another action.
+        open_world_hint=True,  # The tool operates on external webpages.
+    ),
+)
 @handle_sb_errors
 def click_element(selector: str, timeout: float = 5) -> str:
     """Click an element matched by the given CSS selector.
@@ -349,7 +477,15 @@ def click_element(selector: str, timeout: float = 5) -> str:
     return f"Clicked {selector}"
 
 
-@mcp.tool()
+@mcp.tool(
+    title="Click If Visible",
+    annotations=ToolAnnotations(
+        read_only_hint=False,
+        destructive_hint=False,
+        idempotent_hint=False,
+        open_world_hint=True,
+    ),
+)
 @handle_sb_errors
 def click_if_visible(selector: str) -> str:
     """Click an element only if it's currently visible; no-op otherwise."""
@@ -357,7 +493,15 @@ def click_if_visible(selector: str) -> str:
     return f"click_if_visible ran for {selector}"
 
 
-@mcp.tool()
+@mcp.tool(
+    title="Click Visible Elements",
+    annotations=ToolAnnotations(
+        read_only_hint=False,
+        destructive_hint=False,
+        idempotent_hint=False,
+        open_world_hint=True,
+    ),
+)
 @handle_sb_errors
 def click_visible_elements(selector: str, limit: int = 0) -> str:
     """Click every currently-visible element matching a selector, in order.
@@ -366,7 +510,15 @@ def click_visible_elements(selector: str, limit: int = 0) -> str:
     return f"Clicked visible elements matching {selector}"
 
 
-@mcp.tool()
+@mcp.tool(
+    title="Click Nth Visible Element",
+    annotations=ToolAnnotations(
+        read_only_hint=False,
+        destructive_hint=False,
+        idempotent_hint=False,
+        open_world_hint=True,
+    ),
+)
 @handle_sb_errors
 def click_nth_visible_element(selector: str, number: int) -> str:
     """Click the Nth visible element (1-indexed) matching a selector.
@@ -376,7 +528,15 @@ def click_nth_visible_element(selector: str, number: int) -> str:
     return f"Clicked visible element #{number} matching {selector}"
 
 
-@mcp.tool()
+@mcp.tool(
+    title="Click Link",
+    annotations=ToolAnnotations(
+        read_only_hint=False,
+        destructive_hint=False,
+        idempotent_hint=False,
+        open_world_hint=True,
+    ),
+)
 @handle_sb_errors
 def click_link(link_text: str) -> str:
     """Click a link (<a> tag) by its visible text.
@@ -386,7 +546,15 @@ def click_link(link_text: str) -> str:
     return f"Clicked link with text '{link_text}'"
 
 
-@mcp.tool()
+@mcp.tool(
+    title="Double Click",
+    annotations=ToolAnnotations(
+        read_only_hint=False,
+        destructive_hint=False,
+        idempotent_hint=False,
+        open_world_hint=True,
+    ),
+)
 @handle_sb_errors
 def double_click(selector: str, timeout: float = 5) -> str:
     """Double-click an element.
@@ -396,7 +564,15 @@ def double_click(selector: str, timeout: float = 5) -> str:
     return f"Double-clicked {selector}"
 
 
-@mcp.tool()
+@mcp.tool(
+    title="Context Click",
+    annotations=ToolAnnotations(
+        read_only_hint=False,
+        destructive_hint=False,
+        idempotent_hint=False,
+        open_world_hint=True,
+    ),
+)
 @handle_sb_errors
 def context_click(selector: str) -> str:
     """Right-click (context-click) an element.
@@ -406,7 +582,14 @@ def context_click(selector: str) -> str:
     return f"Right-clicked {selector}"
 
 
-@mcp.tool()
+@mcp.tool(
+    title="Type Text",
+    annotations=ToolAnnotations(
+        read_only_hint=False,
+        destructive_hint=False,
+        open_world_hint=True,
+    ),
+)
 @handle_sb_errors
 def type_text(
     selector: str,
@@ -431,7 +614,15 @@ def type_text(
         return f"Typed into {selector}"
 
 
-@mcp.tool()
+@mcp.tool(
+    title="Set Value",
+    annotations=ToolAnnotations(
+        read_only_hint=False,
+        destructive_hint=False,
+        idempotent_hint=True,
+        open_world_hint=True,
+    ),
+)
 @handle_sb_errors
 def set_value(selector: str, text: str, timeout: float = 5) -> str:
     """Set an input's value directly (e.g. for sliders, fast form fills).
@@ -441,7 +632,15 @@ def set_value(selector: str, text: str, timeout: float = 5) -> str:
     return f"Set value of {selector}"
 
 
-@mcp.tool()
+@mcp.tool(
+    title="Clear Input",
+    annotations=ToolAnnotations(
+        read_only_hint=False,
+        destructive_hint=False,
+        idempotent_hint=True,
+        open_world_hint=True,
+    ),
+)
 @handle_sb_errors
 def clear_input(selector: str, timeout: float = 5) -> str:
     """Clear an input field.
@@ -451,7 +650,15 @@ def clear_input(selector: str, timeout: float = 5) -> str:
     return f"Cleared {selector}"
 
 
-@mcp.tool()
+@mcp.tool(
+    title="Submit",
+    annotations=ToolAnnotations(
+        read_only_hint=False,
+        destructive_hint=False,
+        idempotent_hint=False,
+        open_world_hint=True,
+    ),
+)
 @handle_sb_errors
 def submit(selector: str, timeout: float = 5) -> str:
     """Submit a form via a selector inside it.
@@ -461,7 +668,17 @@ def submit(selector: str, timeout: float = 5) -> str:
     return f"Submitted form via {selector}"
 
 
-@mcp.tool()
+@mcp.tool(
+    title="Select Option By Text",
+    annotations=ToolAnnotations(
+        read_only_hint=False,
+        destructive_hint=False,
+        idempotent_hint=False,  # Selecting an option can trigger arbitrary
+        # page-side behavior/events.
+        open_world_hint=True,  # Selecting an option can change browser
+        # state and can trigger arbitrary page-side behavior.
+    ),
+)
 @handle_sb_errors
 def select_option_by_text(
     dropdown_selector: str,
@@ -477,7 +694,17 @@ def select_option_by_text(
     return f"Selected text '{option}' in {dropdown_selector}"
 
 
-@mcp.tool()
+@mcp.tool(
+    title="Select Option By Value",
+    annotations=ToolAnnotations(
+        read_only_hint=False,
+        destructive_hint=False,
+        idempotent_hint=False,  # Selecting an option can trigger arbitrary
+        # page-side behavior/events.
+        open_world_hint=True,  # Selecting an option can change browser
+        # state and can trigger arbitrary page-side behavior.
+    ),
+)
 @handle_sb_errors
 def select_option_by_value(
     dropdown_selector: str,
@@ -493,7 +720,17 @@ def select_option_by_value(
     return f"Selected value '{option}' in {dropdown_selector}"
 
 
-@mcp.tool()
+@mcp.tool(
+    title="Select Option By Index",
+    annotations=ToolAnnotations(
+        read_only_hint=False,
+        destructive_hint=False,
+        idempotent_hint=False,  # Selecting an option can trigger arbitrary
+        # page-side behavior/events.
+        open_world_hint=True,  # Selecting an option can change browser
+        # state and can trigger arbitrary page-side behavior.
+    ),
+)
 @handle_sb_errors
 def select_option_by_index(
     dropdown_selector: str,
@@ -509,7 +746,17 @@ def select_option_by_index(
     return f"Selected index {option} in {dropdown_selector}"
 
 
-@mcp.tool()
+@mcp.tool(
+    title="Hover and Click",
+    annotations=ToolAnnotations(
+        read_only_hint=False,
+        destructive_hint=False,
+        idempotent_hint=False,  # Selecting an option can trigger arbitrary
+        # page-side behavior/events.
+        open_world_hint=True,  # Selecting an option can change browser
+        # state and can trigger arbitrary page-side behavior.
+    ),
+)
 @handle_sb_errors
 def hover_and_click(
     hover_selector: str,
@@ -521,7 +768,15 @@ def hover_and_click(
     return f"Hovered {hover_selector} then clicked {click_selector}"
 
 
-@mcp.tool()
+@mcp.tool(
+    title="Drag and Drop",
+    annotations=ToolAnnotations(
+        read_only_hint=False,
+        destructive_hint=False,
+        idempotent_hint=False,
+        open_world_hint=True,
+    ),
+)
 @handle_sb_errors
 def drag_and_drop(
     drag_selector: str,
@@ -533,7 +788,15 @@ def drag_and_drop(
     return f"Dragged {drag_selector} onto {drop_selector}"
 
 
-@mcp.tool()
+@mcp.tool(
+    title="Nested Click",
+    annotations=ToolAnnotations(
+        read_only_hint=False,
+        destructive_hint=False,
+        idempotent_hint=False,
+        open_world_hint=True,
+    ),
+)
 @handle_sb_errors
 def nested_click(parent_selector: str, selector: str) -> str:
     """Click an element nested inside another (e.g. inside an iframe).
@@ -542,7 +805,15 @@ def nested_click(parent_selector: str, selector: str) -> str:
     return f"Clicked {selector} inside {parent_selector}"
 
 
-@mcp.tool()
+@mcp.tool(
+    title="Choose File",
+    annotations=ToolAnnotations(
+        read_only_hint=False,
+        destructive_hint=False,
+        idempotent_hint=False,
+        open_world_hint=True,
+    ),
+)
 @handle_sb_errors
 def choose_file(selector: str, file_path: str, timeout: float = 5) -> str:
     """Set a <input type="file"> element to upload a local file."""
@@ -554,7 +825,15 @@ def choose_file(selector: str, file_path: str, timeout: float = 5) -> str:
 # Waiting
 # ---------------------------------------------------------------------------
 
-@mcp.tool()
+@mcp.tool(
+    title="Wait For Element",
+    annotations=ToolAnnotations(
+        read_only_hint=True,
+        destructive_hint=False,
+        idempotent_hint=True,
+        open_world_hint=False,
+    ),
+)
 @handle_sb_errors
 def wait_for_element(selector: str, timeout: float = 5) -> str:
     """Wait until an element is visible on the page."""
@@ -562,7 +841,15 @@ def wait_for_element(selector: str, timeout: float = 5) -> str:
     return f"Element {selector} is visible."
 
 
-@mcp.tool()
+@mcp.tool(
+    title="Wait For Element Present",
+    annotations=ToolAnnotations(
+        read_only_hint=True,
+        destructive_hint=False,
+        idempotent_hint=True,
+        open_world_hint=False,
+    ),
+)
 @handle_sb_errors
 def wait_for_element_present(selector: str, timeout: float = 5) -> str:
     """Wait until an element is present in the DOM (may not be visible)."""
@@ -570,7 +857,15 @@ def wait_for_element_present(selector: str, timeout: float = 5) -> str:
     return f"Element {selector} is present."
 
 
-@mcp.tool()
+@mcp.tool(
+    title="Wait For Element Not Visible",
+    annotations=ToolAnnotations(
+        read_only_hint=True,
+        destructive_hint=False,
+        idempotent_hint=True,
+        open_world_hint=False,
+    ),
+)
 @handle_sb_errors
 def wait_for_element_not_visible(selector: str, timeout: float = 5) -> str:
     """Wait until an element is no longer visible."""
@@ -578,7 +873,15 @@ def wait_for_element_not_visible(selector: str, timeout: float = 5) -> str:
     return f"Element {selector} is no longer visible."
 
 
-@mcp.tool()
+@mcp.tool(
+    title="Wait For Element Absent",
+    annotations=ToolAnnotations(
+        read_only_hint=True,
+        destructive_hint=False,
+        idempotent_hint=True,
+        open_world_hint=False,
+    ),
+)
 @handle_sb_errors
 def wait_for_element_absent(selector: str, timeout: float = 5) -> str:
     """Wait until an element is removed from the DOM."""
@@ -586,7 +889,15 @@ def wait_for_element_absent(selector: str, timeout: float = 5) -> str:
     return f"Element {selector} is now absent."
 
 
-@mcp.tool()
+@mcp.tool(
+    title="Wait For Text",
+    annotations=ToolAnnotations(
+        read_only_hint=True,
+        destructive_hint=False,
+        idempotent_hint=True,
+        open_world_hint=False,
+    ),
+)
 @handle_sb_errors
 def wait_for_text(
     text: str, selector: str = "html", timeout: float = 5
@@ -600,7 +911,15 @@ def wait_for_text(
 # Assertions (raise an error, surfaced to the MCP client, if they fail)
 # ---------------------------------------------------------------------------
 
-@mcp.tool()
+@mcp.tool(
+    title="Assert Element",
+    annotations=ToolAnnotations(
+        read_only_hint=True,
+        destructive_hint=False,
+        idempotent_hint=True,
+        open_world_hint=False,
+    ),
+)
 @handle_sb_errors
 def assert_element(selector: str, timeout: float = 5) -> str:
     """Assert an element is visible."""
@@ -608,7 +927,15 @@ def assert_element(selector: str, timeout: float = 5) -> str:
     return f"Confirmed {selector} is visible."
 
 
-@mcp.tool()
+@mcp.tool(
+    title="Assert Element Present",
+    annotations=ToolAnnotations(
+        read_only_hint=True,
+        destructive_hint=False,
+        idempotent_hint=True,
+        open_world_hint=False,
+    ),
+)
 @handle_sb_errors
 def assert_element_present(selector: str, timeout: float = 5) -> str:
     """Assert an element is present in the DOM (may not be visible)."""
@@ -616,7 +943,15 @@ def assert_element_present(selector: str, timeout: float = 5) -> str:
     return f"Confirmed {selector} is present."
 
 
-@mcp.tool()
+@mcp.tool(
+    title="Assert Element Not Visible",
+    annotations=ToolAnnotations(
+        read_only_hint=True,
+        destructive_hint=False,
+        idempotent_hint=True,
+        open_world_hint=False,
+    ),
+)
 @handle_sb_errors
 def assert_element_not_visible(selector: str, timeout: float = 5) -> str:
     """Assert an element is not visible."""
@@ -624,7 +959,15 @@ def assert_element_not_visible(selector: str, timeout: float = 5) -> str:
     return f"Confirmed {selector} is not visible."
 
 
-@mcp.tool()
+@mcp.tool(
+    title="Assert Text",
+    annotations=ToolAnnotations(
+        read_only_hint=True,
+        destructive_hint=False,
+        idempotent_hint=True,
+        open_world_hint=False,
+    ),
+)
 @handle_sb_errors
 def assert_text(text: str, selector: str = "html", timeout: float = 5) -> str:
     """Assert text is present within an element."""
@@ -632,7 +975,15 @@ def assert_text(text: str, selector: str = "html", timeout: float = 5) -> str:
     return f"Confirmed '{text}' is present in {selector}."
 
 
-@mcp.tool()
+@mcp.tool(
+    title="Assert Exact Text",
+    annotations=ToolAnnotations(
+        read_only_hint=True,
+        destructive_hint=False,
+        idempotent_hint=True,
+        open_world_hint=False,
+    ),
+)
 @handle_sb_errors
 def assert_exact_text(
     text: str, selector: str = "html", timeout: float = 5
@@ -642,7 +993,15 @@ def assert_exact_text(
     return f"Confirmed {selector} text is exactly '{text}'."
 
 
-@mcp.tool()
+@mcp.tool(
+    title="Assert Title",
+    annotations=ToolAnnotations(
+        read_only_hint=True,
+        destructive_hint=False,
+        idempotent_hint=True,
+        open_world_hint=False,
+    ),
+)
 @handle_sb_errors
 def assert_title(title: str) -> str:
     """Assert the page title matches exactly."""
@@ -650,7 +1009,15 @@ def assert_title(title: str) -> str:
     return f"Confirmed title is '{title}'."
 
 
-@mcp.tool()
+@mcp.tool(
+    title="Assert URL",
+    annotations=ToolAnnotations(
+        read_only_hint=True,
+        destructive_hint=False,
+        idempotent_hint=True,
+        open_world_hint=False,
+    ),
+)
 @handle_sb_errors
 def assert_url(url: str) -> str:
     """Assert the current URL matches exactly."""
@@ -658,7 +1025,15 @@ def assert_url(url: str) -> str:
     return f"Confirmed URL is '{url}'."
 
 
-@mcp.tool()
+@mcp.tool(
+    title="Assert URL Contains",
+    annotations=ToolAnnotations(
+        read_only_hint=True,
+        destructive_hint=False,
+        idempotent_hint=True,
+        open_world_hint=False,
+    ),
+)
 @handle_sb_errors
 def assert_url_contains(substring: str) -> str:
     """Assert the current URL contains a substring."""
@@ -666,7 +1041,15 @@ def assert_url_contains(substring: str) -> str:
     return f"Confirmed URL contains '{substring}'."
 
 
-@mcp.tool()
+@mcp.tool(
+    title="Assert No 404 Errors",
+    annotations=ToolAnnotations(
+        read_only_hint=True,
+        destructive_hint=False,
+        idempotent_hint=True,
+        open_world_hint=False,
+    ),
+)
 @handle_sb_errors
 def assert_no_404_errors() -> str:
     """Assert that none of the page's links return a 404 status."""
@@ -674,7 +1057,15 @@ def assert_no_404_errors() -> str:
     return "Confirmed no broken (404) links."
 
 
-@mcp.tool()
+@mcp.tool(
+    title="Assert No JS Errors",
+    annotations=ToolAnnotations(
+        read_only_hint=True,
+        destructive_hint=False,
+        idempotent_hint=True,
+        open_world_hint=False,
+    ),
+)
 @handle_sb_errors
 def assert_no_js_errors() -> str:
     """Assert the browser console has no JavaScript errors."""
@@ -686,14 +1077,30 @@ def assert_no_js_errors() -> str:
 # Cookies & storage
 # ---------------------------------------------------------------------------
 
-@mcp.tool()
+@mcp.tool(
+    title="Get Cookies",
+    annotations=ToolAnnotations(
+        read_only_hint=True,
+        destructive_hint=False,
+        idempotent_hint=True,
+        open_world_hint=True,
+    ),
+)
 @handle_sb_errors
 def get_cookies() -> Any:
     """Get all cookies for the current session."""
     return _get_sb().get_cookies()
 
 
-@mcp.tool()
+@mcp.tool(
+    title="Delete All Cookies",
+    annotations=ToolAnnotations(
+        read_only_hint=False,
+        destructive_hint=False,
+        idempotent_hint=True,
+        open_world_hint=True,
+    ),
+)
 @handle_sb_errors
 def delete_all_cookies() -> str:
     """Delete all cookies."""
@@ -701,7 +1108,15 @@ def delete_all_cookies() -> str:
     return "All cookies deleted."
 
 
-@mcp.tool()
+@mcp.tool(
+    title="Save Cookies",
+    annotations=ToolAnnotations(
+        read_only_hint=False,
+        destructive_hint=False,
+        idempotent_hint=True,
+        open_world_hint=True,
+    ),
+)
 @handle_sb_errors
 def save_cookies(name: str = "cookies.txt") -> str:
     """Save current cookies to a file."""
@@ -709,7 +1124,15 @@ def save_cookies(name: str = "cookies.txt") -> str:
     return f"Cookies saved to {name}"
 
 
-@mcp.tool()
+@mcp.tool(
+    title="Load Cookies",
+    annotations=ToolAnnotations(
+        read_only_hint=False,
+        destructive_hint=False,
+        idempotent_hint=True,
+        open_world_hint=True,
+    ),
+)
 @handle_sb_errors
 def load_cookies(name: str = "cookies.txt") -> str:
     """Load cookies from a previously saved file."""
@@ -717,14 +1140,30 @@ def load_cookies(name: str = "cookies.txt") -> str:
     return f"Cookies loaded from {name}"
 
 
-@mcp.tool()
+@mcp.tool(
+    title="Get Local Storage Item",
+    annotations=ToolAnnotations(
+        read_only_hint=True,
+        destructive_hint=False,
+        idempotent_hint=True,
+        open_world_hint=True,
+    ),
+)
 @handle_sb_errors
 def get_local_storage_item(key: str) -> Any:
     """Get a value from the page's localStorage."""
     return _get_sb().get_local_storage_item(key)
 
 
-@mcp.tool()
+@mcp.tool(
+    title="Set Local Storage Item",
+    annotations=ToolAnnotations(
+        read_only_hint=False,
+        destructive_hint=False,
+        idempotent_hint=True,
+        open_world_hint=True,
+    ),
+)
 @handle_sb_errors
 def set_local_storage_item(key: str, value: str) -> str:
     """Set a value in the page's localStorage."""
@@ -732,14 +1171,30 @@ def set_local_storage_item(key: str, value: str) -> str:
     return f"Set localStorage[{key!r}]"
 
 
-@mcp.tool()
+@mcp.tool(
+    title="Get Session Storage Item",
+    annotations=ToolAnnotations(
+        read_only_hint=True,
+        destructive_hint=False,
+        idempotent_hint=True,
+        open_world_hint=True,
+    ),
+)
 @handle_sb_errors
 def get_session_storage_item(key: str) -> Any:
     """Get a value from the page's sessionStorage."""
     return _get_sb().get_session_storage_item(key)
 
 
-@mcp.tool()
+@mcp.tool(
+    title="Set Session Storage Item",
+    annotations=ToolAnnotations(
+        read_only_hint=False,
+        destructive_hint=False,
+        idempotent_hint=True,
+        open_world_hint=True,
+    ),
+)
 @handle_sb_errors
 def set_session_storage_item(key: str, value: str) -> str:
     """Set a value in the page's sessionStorage."""
@@ -751,7 +1206,15 @@ def set_session_storage_item(key: str, value: str) -> str:
 # Scrolling
 # ---------------------------------------------------------------------------
 
-@mcp.tool()
+@mcp.tool(
+    title="Scroll Into View",
+    annotations=ToolAnnotations(
+        read_only_hint=False,
+        destructive_hint=False,
+        idempotent_hint=True,
+        open_world_hint=False,
+    ),
+)
 @handle_sb_errors
 def scroll_into_view(selector: str) -> str:
     """Scroll an element into view."""
@@ -759,7 +1222,15 @@ def scroll_into_view(selector: str) -> str:
     return f"Scrolled {selector} into view."
 
 
-@mcp.tool()
+@mcp.tool(
+    title="Scroll To Top",
+    annotations=ToolAnnotations(
+        read_only_hint=False,
+        destructive_hint=False,
+        idempotent_hint=True,
+        open_world_hint=False,
+    ),
+)
 @handle_sb_errors
 def scroll_to_top() -> str:
     """Scroll to the top of the page."""
@@ -767,7 +1238,15 @@ def scroll_to_top() -> str:
     return "Scrolled to top."
 
 
-@mcp.tool()
+@mcp.tool(
+    title="Scroll To Bottom",
+    annotations=ToolAnnotations(
+        read_only_hint=False,
+        destructive_hint=False,
+        idempotent_hint=True,
+        open_world_hint=False,
+    ),
+)
 @handle_sb_errors
 def scroll_to_bottom() -> str:
     """Scroll to the bottom of the page."""
@@ -775,7 +1254,15 @@ def scroll_to_bottom() -> str:
     return "Scrolled to bottom."
 
 
-@mcp.tool()
+@mcp.tool(
+    title="Scroll Up",
+    annotations=ToolAnnotations(
+        read_only_hint=False,
+        destructive_hint=False,
+        idempotent_hint=False,
+        open_world_hint=False,
+    ),
+)
 @handle_sb_errors
 def scroll_up(amount: int = 25) -> str:
     """Scroll up by a relative amount."""
@@ -783,7 +1270,15 @@ def scroll_up(amount: int = 25) -> str:
     return f"Scrolled up {amount}."
 
 
-@mcp.tool()
+@mcp.tool(
+    title="Scroll Down",
+    annotations=ToolAnnotations(
+        read_only_hint=False,
+        destructive_hint=False,
+        idempotent_hint=False,
+        open_world_hint=False,
+    ),
+)
 @handle_sb_errors
 def scroll_down(amount: int = 25) -> str:
     """Scroll down by a relative amount."""
@@ -795,14 +1290,30 @@ def scroll_down(amount: int = 25) -> str:
 # Windows & tabs & frames
 # ---------------------------------------------------------------------------
 
-@mcp.tool()
+@mcp.tool(
+    title="Get Window Rect",
+    annotations=ToolAnnotations(
+        read_only_hint=True,
+        destructive_hint=False,
+        idempotent_hint=True,
+        open_world_hint=False,
+    ),
+)
 @handle_sb_errors
 def get_window_rect() -> dict | str:
     """Get the current window's position and size."""
     return _get_sb().get_window_rect()
 
 
-@mcp.tool()
+@mcp.tool(
+    title="Maximize Window",
+    annotations=ToolAnnotations(
+        read_only_hint=False,
+        destructive_hint=False,
+        idempotent_hint=True,
+        open_world_hint=False,
+    ),
+)
 @handle_sb_errors
 def maximize_window() -> str:
     """Maximize the browser window."""
@@ -810,7 +1321,15 @@ def maximize_window() -> str:
     return "Window maximized."
 
 
-@mcp.tool()
+@mcp.tool(
+    title="Minimize Window",
+    annotations=ToolAnnotations(
+        read_only_hint=False,
+        destructive_hint=False,
+        idempotent_hint=True,
+        open_world_hint=False,
+    ),
+)
 @handle_sb_errors
 def minimize_window() -> str:
     """Minimize the browser window."""
@@ -818,7 +1337,15 @@ def minimize_window() -> str:
     return "Window minimized."
 
 
-@mcp.tool()
+@mcp.tool(
+    title="Open New Tab",
+    annotations=ToolAnnotations(
+        read_only_hint=False,
+        destructive_hint=False,
+        idempotent_hint=False,
+        open_world_hint=False,
+    ),
+)
 @handle_sb_errors
 def open_new_tab(switch_to: bool = True) -> str:
     """Open a new browser tab, optionally switching to it."""
@@ -826,7 +1353,15 @@ def open_new_tab(switch_to: bool = True) -> str:
     return f"Opened new tab (switch_to={switch_to})"
 
 
-@mcp.tool()
+@mcp.tool(
+    title="Switch To Newest Tab",
+    annotations=ToolAnnotations(
+        read_only_hint=False,
+        destructive_hint=False,
+        idempotent_hint=True,
+        open_world_hint=False,
+    ),
+)
 @handle_sb_errors
 def switch_to_newest_tab() -> str:
     """Switch to the most recently opened tab."""
@@ -834,7 +1369,15 @@ def switch_to_newest_tab() -> str:
     return "Switched to newest tab."
 
 
-@mcp.tool()
+@mcp.tool(
+    title="Switch To Default Window",
+    annotations=ToolAnnotations(
+        read_only_hint=False,
+        destructive_hint=False,
+        idempotent_hint=True,
+        open_world_hint=False,
+    ),
+)
 @handle_sb_errors
 def switch_to_default_window() -> str:
     """Switch back to the first/original browser tab."""
@@ -842,7 +1385,15 @@ def switch_to_default_window() -> str:
     return "Switched to default (first) tab."
 
 
-@mcp.tool()
+@mcp.tool(
+    title="Switch To Frame",
+    annotations=ToolAnnotations(
+        read_only_hint=False,
+        destructive_hint=False,
+        idempotent_hint=False,
+        open_world_hint=True,
+    ),
+)
 @handle_sb_errors
 def switch_to_frame(selector: str = "iframe") -> str:
     """Switch driver focus into an iframe matched by a CSS selector."""
@@ -850,7 +1401,15 @@ def switch_to_frame(selector: str = "iframe") -> str:
     return f"Switched into frame {selector}"
 
 
-@mcp.tool()
+@mcp.tool(
+    title="Switch To Default Content",
+    annotations=ToolAnnotations(
+        read_only_hint=False,
+        destructive_hint=False,
+        idempotent_hint=True,
+        open_world_hint=True,
+    ),
+)
 @handle_sb_errors
 def switch_to_default_content() -> str:
     """Switch driver focus back out to the main page (out of any iframe)."""
@@ -862,7 +1421,15 @@ def switch_to_default_content() -> str:
 # UC Mode / CDP Mode stealth helpers (require start_browser(uc=True))
 # ---------------------------------------------------------------------------
 
-@mcp.tool()
+@mcp.tool(
+    title="Activate CDP Mode",
+    annotations=ToolAnnotations(
+        read_only_hint=False,
+        destructive_hint=False,
+        idempotent_hint=True,
+        open_world_hint=True,
+    ),
+)
 @handle_sb_errors
 def activate_cdp_mode(url: str | None = None) -> str:
     """Switch the current browser session into CDP Mode, which adds stealth
@@ -872,7 +1439,16 @@ def activate_cdp_mode(url: str | None = None) -> str:
     return f"CDP Mode activated (url={url!r})"
 
 
-@mcp.tool()
+@mcp.tool(
+    title="Solve CAPTCHA",
+    annotations=ToolAnnotations(
+        read_only_hint=False,
+        destructive_hint=False,
+        idempotent_hint=False,  # Re-attempting an already-handled or
+        # rotated CAPTCHA is not a no-op.
+        open_world_hint=True,  # Interacts with a 3rd-party CAPTCHA widget.
+    ),
+)
 @handle_sb_errors
 def solve_captcha() -> str:
     """Attempt to solve a captcha (e.g. Cloudflare Turnstile) on the page."""
@@ -884,7 +1460,15 @@ def solve_captcha() -> str:
 # MFA / TOTP
 # ---------------------------------------------------------------------------
 
-@mcp.tool()
+@mcp.tool(
+    title="Get MFA Code",
+    annotations=ToolAnnotations(
+        read_only_hint=True,
+        destructive_hint=False,
+        idempotent_hint=False,
+        open_world_hint=False,
+    ),
+)
 @handle_sb_errors
 def get_mfa_code(totp_key: str) -> str:
     """Generate a current TOTP (e.g. Google Authenticator) code from a
@@ -892,7 +1476,15 @@ def get_mfa_code(totp_key: str) -> str:
     return _get_sb().get_mfa_code(totp_key)
 
 
-@mcp.tool()
+@mcp.tool(
+    title="Enter MFA Code",
+    annotations=ToolAnnotations(
+        read_only_hint=False,
+        destructive_hint=False,
+        idempotent_hint=False,
+        open_world_hint=True,
+    ),
+)
 @handle_sb_errors
 def enter_mfa_code(selector: str, totp_key: str) -> str:
     """Generate a current TOTP code and type it into a field."""
@@ -904,7 +1496,14 @@ def enter_mfa_code(selector: str, totp_key: str) -> str:
 # Output & files
 # ---------------------------------------------------------------------------
 
-@mcp.tool()
+@mcp.tool(
+    title="Save Screenshot",
+    annotations=ToolAnnotations(
+        read_only_hint=False,
+        idempotent_hint=False,
+        open_world_hint=False,
+    ),
+)
 @handle_sb_errors
 def save_screenshot(
     name: str = "screenshot.png", folder: str | None = None
@@ -914,7 +1513,14 @@ def save_screenshot(
     return f"Screenshot saved as {name}"
 
 
-@mcp.tool()
+@mcp.tool(
+    title="Save Page Source",
+    annotations=ToolAnnotations(
+        read_only_hint=False,
+        idempotent_hint=False,
+        open_world_hint=False,
+    ),
+)
 @handle_sb_errors
 def save_page_source(
     name: str = "page_source.html", folder: str | None = None
@@ -924,7 +1530,14 @@ def save_page_source(
     return f"Page source saved as {name}"
 
 
-@mcp.tool()
+@mcp.tool(
+    title="Print To PDF",
+    annotations=ToolAnnotations(
+        read_only_hint=False,
+        idempotent_hint=False,
+        open_world_hint=False,
+    ),
+)
 @handle_sb_errors
 def print_to_pdf(name: str = "page.pdf", folder: str | None = None) -> str:
     """Print the current page to a PDF file."""
@@ -932,7 +1545,14 @@ def print_to_pdf(name: str = "page.pdf", folder: str | None = None) -> str:
     return f"Page saved as PDF: {name}"
 
 
-@mcp.tool()
+@mcp.tool(
+    title="Download File",
+    annotations=ToolAnnotations(
+        read_only_hint=False,
+        idempotent_hint=False,
+        open_world_hint=True,
+    ),
+)
 @handle_sb_errors
 def download_file(file_url: str, destination_folder: str | None = None) -> str:
     """Download a file from a URL to a local folder."""
@@ -940,7 +1560,15 @@ def download_file(file_url: str, destination_folder: str | None = None) -> str:
     return f"Downloaded {file_url}"
 
 
-@mcp.tool()
+@mcp.tool(
+    title="Evaluate",
+    annotations=ToolAnnotations(
+        read_only_hint=False,
+        destructive_hint=False,
+        idempotent_hint=False,
+        open_world_hint=True,
+    ),
+)
 @handle_sb_errors
 def evaluate(expression: str) -> Any:
     """Evaluate a JavaScript expression in the page context and return the
@@ -948,7 +1576,15 @@ def evaluate(expression: str) -> Any:
     return _get_sb().evaluate(expression)
 
 
-@mcp.tool()
+@mcp.tool(
+    title="Execute Script",
+    annotations=ToolAnnotations(
+        read_only_hint=False,
+        destructive_hint=False,
+        idempotent_hint=False,
+        open_world_hint=True,
+    ),
+)
 @handle_sb_errors
 def execute_script(script: str) -> Any:
     """Execute JavaScript in the page context and return the result.
@@ -958,7 +1594,15 @@ def execute_script(script: str) -> Any:
     return _get_sb().execute_script(script)
 
 
-@mcp.tool()
+@mcp.tool(
+    title="Highlight",
+    annotations=ToolAnnotations(
+        read_only_hint=False,
+        destructive_hint=False,
+        idempotent_hint=False,
+        open_world_hint=True,
+    ),
+)
 @handle_sb_errors
 def highlight(selector: str, loops: int = 4, timeout: float = 5) -> str:
     """Briefly highlight an element with a colored animation — useful for
@@ -967,7 +1611,15 @@ def highlight(selector: str, loops: int = 4, timeout: float = 5) -> str:
     return f"Highlighted {selector}"
 
 
-@mcp.tool()
+@mcp.tool(
+    title="Flash",
+    annotations=ToolAnnotations(
+        read_only_hint=False,
+        destructive_hint=False,
+        idempotent_hint=False,
+        open_world_hint=True,
+    ),
+)
 @handle_sb_errors
 def flash(selector: str, duration: float = 1) -> str:
     """Flash an element to draw attention to it."""
@@ -975,7 +1627,15 @@ def flash(selector: str, duration: float = 1) -> str:
     return f"Flashed {selector}"
 
 
-@mcp.tool()
+@mcp.tool(
+    title="Sleep",
+    annotations=ToolAnnotations(
+        read_only_hint=True,
+        destructive_hint=False,
+        idempotent_hint=True,
+        open_world_hint=False,
+    ),
+)
 @handle_sb_errors
 def sleep(seconds: float) -> str:
     """Pause execution for a number of seconds."""
