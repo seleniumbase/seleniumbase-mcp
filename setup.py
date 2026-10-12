@@ -140,7 +140,7 @@ setup(
     ],
     python_requires=">=3.10",
     install_requires=[
-        "seleniumbase[mcp]>=4.56.0",
+        "seleniumbase[mcp]>=4.56.1",
         "mcp[cli]>=2.3.0,<3.0.0",
     ],
     extras_require={
