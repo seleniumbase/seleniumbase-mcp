@@ -140,7 +140,7 @@ setup(
     ],
     python_requires=">=3.10",
     install_requires=[
-        "seleniumbase[mcp]>=4.56.1",
+        "seleniumbase[mcp]>=4.56.3",
         "mcp[cli]>=2.3.0,<3.0.0",
     ],
     extras_require={
@@ -149,10 +149,10 @@ setup(
             "twine>=7.0.0",
         ],
         "uv": [
-            "uv>=0.13.0",
+            "uv>=0.13.4",
         ],
         "dev": [
-            "uv>=0.13.0",
+            "uv>=0.13.4",
         ],
     },
     entry_points={
