@@ -1,2 +1,2 @@
-seleniumbase[mcp]>=4.56.4
+seleniumbase[mcp]>=4.56.5
 mcp[cli]>=2.3.0,<3.0.0
