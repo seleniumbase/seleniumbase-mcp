@@ -33,7 +33,7 @@ if sys.argv[-1] == "publish":
             print("You are currently using Python %s\n" % current_ver)
             sys.exit()
         print("\n*** Checking code health with flake8:\n")
-        os.system("python -m pip install 'flake8==7.3.0'")
+        os.system("python -m pip install 'flake8==7.5.0'")
         flake8_status = os.system(
             "flake8 --exclude=recordings,temp,venv,.venv"
         )
@@ -140,7 +140,7 @@ setup(
     ],
     python_requires=">=3.10",
     install_requires=[
-        "seleniumbase[mcp]>=4.56.5",
+        "seleniumbase[mcp]>=4.57.0",
         "mcp[cli]>=2.3.0,<3.0.0",
     ],
     extras_require={
@@ -149,10 +149,10 @@ setup(
             "twine>=7.0.0",
         ],
         "uv": [
-            "uv>=0.13.6",
+            "uv>=0.13.7",
         ],
         "dev": [
-            "uv>=0.13.6",
+            "uv>=0.13.7",
         ],
     },
     entry_points={
